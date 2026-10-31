@@ -1,50 +1,54 @@
-# COMP3500 VoteLab / 投票系统基础原型
+# VoteLab / COMP3500 投票系统
 
-Increment 1: single choice and 0–5 scoring. **Local classroom prototype, not a deployed service or a finished project.** AI-assisted starter implementation for the team to review, understand and extend. Do not claim this code was independently written by team members.
+Version 2: a local Python + SQLite web application with separate management and voting accounts. 单选与0–5星评分；本地教学原型，尚未上线。AI辅助基础实现，组员需要理解、复核并继续开发。
 
-## Run / 启动
+## 启动 / Run
 
-Install Python 3.11 or newer, then open a terminal in this folder:
+安装Python 3.11或更新版本，在本文件夹终端运行：
 
 ```text
 python app.py
 ```
 
-Open http://127.0.0.1:8000 in a browser. No third-party packages are needed. The SQLite database is created in `data/`, excluded from Git. Stop with Ctrl+C. Windows may use `py app.py` instead.
+浏览器打开 http://127.0.0.1:8000 。无需第三方依赖，Windows也可使用 `py app.py`。关闭终端会停止服务。SQLite文件保存在不上传的 `data/` 文件夹。GitHub只保存代码，不代表服务已上线。
+
+## 使用流程
+
+1. 登录页选择管理者或投票者。账号角色保存在后台，切换登录标签不能提升权限。管理者只能操作自己的活动，投票者只能参与投票。
+2. 新注册账号需点击获取演示验证码，再输入显示的6位码。当前仅本地模拟，没有发送短信或验证手机号本人。
+3. 管理者创建活动：标题、单选/评分、2–20个不同候选人、1–10080分钟持续时间、结果权限。保存后可以编辑及预览，确认发布后立即开始计时并锁定设置。
+4. 投票者选择一个作品，或为每个作品明确选择0–5分。先进入核对页，再确认提交。未评分不等于零分。
+5. 系统在最终提交时检查截止、重复及格式，整张票一起保存；失败回滚。成功后可在我的投票查看，重复提交被拒绝。
+6. 所属管理者关闭活动或等待截止后查看汇总条形图，再发布结果。公开已发布结果可由所有人查看；私人结果仅所属管理者可见。UI不显示谁投给谁。
+
+已有本地数据会保留。若升级前账号已创建活动，迁移会将该账号标记为MANAGER；其余为VOTER。仓库不包含真实或演示账号数据库；新下载者应自行注册虚构账号。
+
+## 文件 / Files
+
+- `app.py`: 数据库初始化、迁移、选票验证及事务、计票、程序入口。
+- `web.py`: 页面、角色权限、模拟验证码、活动流程。
+- `schema.sql`: 数据表和约束。
+- `static/`: 响应式样式、搜索、密码显示和星星交互。
+- `test_app.py`: 自动化验收及异常测试。
+- `docs/VERSION_2.md`: 本轮更新、功能边界及参考来源。
+- `docs/DESIGN_AND_ACCEPTANCE.md`: 数据/流程设计及验收映射。
+- `docs/PROGRESS_AND_LOGBOOK.md`: 第一轮进度材料；最新变化以VERSION_2为准。
+- `docs/TEAM_WORKFLOW.md`: 小组协作建议。
+
+## 检查 / Tests
 
 ```text
 python -m unittest -v
 ```
 
-Run tests from this folder. Tests use temporary databases and do not modify the demo database.
+测试使用独立临时数据库，不修改演示数据。当前19项；包括权限、验证码、编辑锁定、确认不保存、重复投票、截止、评分及失败回滚。
 
-## Demonstrate / 演示步骤
+## 重要边界 / Limits
 
-1. Register a fictional phone account (8–15 digits) and a password of at least 8 characters. Phone ownership is **not verified**; do not use real personal details.
-2. Create an event with at least two distinct candidates; select SINGLE or SCORE, results visibility, and duration in minutes.
-3. Review the draft preview. Confirm publication to start voting immediately. Preview itself cannot save ballots. Draft editing is pending; create another draft to correct a mistake.
-4. Vote using another demo account, e.g. a separate browser or private window. SINGLE requires one candidate; SCORE requires an explicit integer 0–5 for every candidate. Zero is valid, unanswered is not.
-5. A successful ballot is shown on the event page. A second submission in the same round is rejected.
-6. Close as the creator, or wait for the deadline. Deadline checks happen on every request and again inside the ballot transaction; there is **no background scheduler** yet.
-7. The creator can review closed totals and publish them. Public published results are accessible to everyone; private results remain creator-only in this increment. No UI displays who voted for whom.
+真实短信/学号验证、全站管理员与双人审批、奖项分配、平票加赛、延期、PDF导出、多选、多数决选和RCV仍在backlog，不能报告为已完成。
 
-The end time is displayed in UTC. Duration starts when publication is confirmed, not when the draft is saved. The built-in server binds to localhost only. Do not expose it publicly.
+截止在每次请求及提交时检查，没有后台调度器。日期按服务器本地时区显示。手机号只作为账号；本地模拟验证码不证明归属。演示允许注册管理者，生产邀请政策待定。数据库内可以关联选票身份，分表不等于密码学匿名。使用虚构资料。
 
-## Files / 文件
+结果发布暂由所属管理者操作，完整发布审批规则仍需组内确认。私人权限指结果查看，不代表访客不能浏览活动或参加活动。服务只绑定localhost，不用于公开部署。
 
-- `app.py`: WSGI pages, account sessions, lifecycle, vote validation and counting.
-- `schema.sql`: users, sessions, elections, candidates, rounds, ballots, choices and lifecycle audit.
-- `test_app.py`: automated acceptance and failure-path checks.
-- `docs/`: requirements, test mapping, current progress, meeting agenda and team workflow.
-
-## Known limits / 当前边界
-
-Not yet implemented: multi-selection, majority runoff, RCV, award quotas / award allocation, tie runoff / joint approval, administrator role, candidate review, draft editing, separate vote-confirmation page, one-time end-time extension, SMS / school ID verification, PDF export, scheduled starts, background closure jobs and robust network-timeout recovery UI. They remain backlog items, **not completed requirements**.
-
-Result-publication behavior is a provisional demo choice: creator publishes after closure. The team's exact publication permissions remain open. Private controls **result access**, not event participation; private invitations are not implemented. Ordinary database operators can correlate ballots and choices internally: separate tables do **not** guarantee anonymity. The result UI only shows aggregates.
-
-The local server is single-process and not load tested. Password hashing, server-side sessions, CSRF checks, escaping, transactions and constraints provide basic protections but not a full security assessment. SMS verification, rate limiting, HTTPS, production secrets, backups and deployment require further work.
-
-## Collaboration / 小组协作
-
-See `docs/TEAM_WORKFLOW.md`. Preserve other coursework in the repository root; this project lives only in `voting-system/`.
+技术实现采用Python标准库+SQLite，便于无依赖运行；这是可供组内复核的实现选择。尚未进行生产安全评审、并发压测、跨设备远程部署。不要把原型当作成熟商业平台。

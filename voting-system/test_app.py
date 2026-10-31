@@ -5,7 +5,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 import app
 
 
@@ -15,7 +15,8 @@ class Client:
 
     def request(self, path, fields=None):
         raw = urlencode(fields or {}, doseq=True).encode()
-        env = {'REQUEST_METHOD':'POST' if fields is not None else 'GET', 'PATH_INFO':path,
+        url=urlsplit(path)
+        env = {'REQUEST_METHOD':'POST' if fields is not None else 'GET', 'PATH_INFO':url.path,'QUERY_STRING':url.query,
                'CONTENT_LENGTH':str(len(raw)), 'wsgi.input':io.BytesIO(raw),
                'HTTP_COOKIE':'; '.join(k+'='+v for k,v in self.cookies.items())}
         meta = {}
@@ -33,6 +34,12 @@ class Client:
         csrf = re.search(r'name="csrf" value="([a-f0-9]+)"',body)[1]
         return self.request(path,{**fields,'csrf':csrf})
 
+    def register(self, phone, name='Demo', role='VOTER'):
+        status,body,_=self.post('/auth/code',{'phone':phone,'purpose':'register','role':role})
+        if status != 200: return status,body,{}
+        code=re.search(r'class="otp-code">([0-9]{6})',body)[1]
+        return self.post('/register',{'phone':phone,'name':name,'password':'demo-pass-123','role':role,'code':code})
+
 
 class VotingTests(unittest.TestCase):
     def setUp(self):
@@ -41,7 +48,7 @@ class VotingTests(unittest.TestCase):
         app.init_db()
         self.owner, self.voter = Client(), Client()
         for client, phone in ((self.owner,'12345678'),(self.voter,'87654321')):
-            self.assertEqual(client.post('/register',{'phone':phone,'name':'Demo','password':'demo-pass-123'})[0],303)
+            self.assertEqual(client.register(phone,role='MANAGER' if client is self.owner else 'VOTER')[0],303)
         self.eid = self.create()
 
     def tearDown(self):
@@ -91,6 +98,9 @@ class VotingTests(unittest.TestCase):
                      {f'score_{a}':'1.5',f'score_{b}':'3'}):
             self.assertEqual(self.voter.post(f'/e/{eid}/vote',data)[0],400)
         self.assertEqual(self.voter.post(f'/e/{eid}/vote',{f'score_{a}':'0',f'score_{b}':'5'})[0],303)
+        body=self.voter.request(f'/e/{eid}')[1]
+        self.assertIn(f'name="score_{a}" value="0" checked disabled',body)
+        self.assertIn(f'name="score_{b}" value="5" checked disabled',body)
         with app.connect() as con:
             self.assertEqual([r['total'] for r in app.get_results(con,eid)],[5,0])
             self.assertEqual(con.execute('SELECT COUNT(*) FROM ballots').fetchone()[0],1)
@@ -152,7 +162,69 @@ class VotingTests(unittest.TestCase):
 
     def test_login_wrong_password_and_existing_account(self):
         self.assertEqual(Client().post('/login',{'phone':'12345678','password':'wrong-pass'})[0],401)
-        self.assertEqual(Client().post('/register',{'phone':'12345678','name':'Other','password':'demo-pass-123'})[0],409)
+        self.assertEqual(Client().register('12345678',name='Other')[0],409)
+
+    def test_voter_cannot_create_and_login_cannot_change_role(self):
+        self.assertEqual(self.voter.request('/create')[0],403)
+        self.assertEqual(self.voter.post('/create',{'title':'Forged'})[0],403)
+        self.assertEqual(Client().post('/login',{'phone':'87654321','password':'demo-pass-123','role':'MANAGER'})[0],403)
+        self.open()
+        self.assertEqual(self.owner.post(f'/e/{self.eid}/vote',{'candidate':str(self.ids()[0])})[0],403)
+
+    def test_registration_requires_code_and_code_is_one_use(self):
+        guest=Client()
+        payload={'phone':'11112222','password':'demo-pass-123','name':'Guest','role':'VOTER'}
+        self.assertEqual(guest.post('/register',payload)[0],400)
+        status,body,_=guest.post('/auth/code',{'phone':'11112222','purpose':'register'})
+        self.assertEqual(status,200)
+        code=re.search(r'class="otp-code">([0-9]{6})',body)[1]
+        self.assertEqual(guest.post('/register',{**payload,'code':code})[0],303)
+        self.assertEqual(guest.post('/register',{**payload,'code':code})[0],400)
+
+    def test_code_cooldown_expiry_attempt_limit_and_browser_binding(self):
+        guest=Client()
+        fields={'phone':'87654321','purpose':'login'}
+        _,body,_=guest.post('/auth/code',fields)
+        code=re.search(r'class="otp-code">([0-9]{6})',body)[1]
+        self.assertEqual(guest.post('/auth/code',fields)[0],429)
+        self.assertEqual(Client().post('/login',{'phone':'87654321','code':code,'login_method':'code'})[0],400)
+        wrong='000000' if code!='000000' else '111111'
+        for _ in range(5): self.assertEqual(guest.post('/login',{'phone':'87654321','code':wrong,'login_method':'code'})[0],400)
+        self.assertEqual(guest.post('/login',{'phone':'87654321','code':code,'login_method':'code'})[0],400)
+        with app.connect() as con: con.execute('UPDATE verification_codes SET attempts=0,expires=?',(int(time.time())-1,))
+        self.assertEqual(guest.post('/login',{'phone':'87654321','code':code,'login_method':'code'})[0],400)
+
+    def test_code_login_success(self):
+        guest=Client()
+        _,body,_=guest.post('/auth/code',{'phone':'87654321','purpose':'login'})
+        code=re.search(r'class="otp-code">([0-9]{6})',body)[1]
+        self.assertEqual(guest.post('/login',{'phone':'87654321','code':code,'login_method':'code','role':'VOTER'})[0],303)
+        self.assertEqual(guest.request('/my-votes')[0],200)
+
+    def test_draft_edit_and_published_lock(self):
+        data={'title':'Updated event','method':'SCORE','visibility':'PRIVATE','duration':'30','candidates':'New A\nNew B\nNew C'}
+        self.assertEqual(self.owner.post(f'/e/{self.eid}/edit',data)[0],303)
+        self.assertEqual(len(self.ids()),3)
+        body=self.owner.request(f'/e/{self.eid}/preview')[1]
+        self.assertIn('Updated event',body)
+        self.assertIn('New C',body)
+        self.open()
+        self.assertEqual(self.owner.post(f'/e/{self.eid}/edit',data)[0],409)
+
+    def test_confirmation_does_not_save_until_final_submit(self):
+        self.open()
+        data={'candidate':str(self.ids()[0])}
+        self.assertEqual(self.voter.post(f'/e/{self.eid}/confirm',data)[0],200)
+        with app.connect() as con: self.assertEqual(con.execute('SELECT COUNT(*) FROM ballots').fetchone()[0],0)
+        self.assertEqual(self.voter.post(f'/e/{self.eid}/vote',data)[0],303)
+
+    def test_assets_search_and_password_toggle_controls(self):
+        self.assertEqual(self.voter.request('/static/style.css')[0],200)
+        self.assertEqual(self.voter.request('/static/app.js')[0],200)
+        self.assertIn('data-password',Client().request('/login')[1])
+        self.open()
+        self.assertIn('data-search',self.voter.request('/')[1])
+        self.assertNotIn('Test event',self.voter.request('/?status=CLOSED')[1])
 
 
 if __name__ == '__main__':

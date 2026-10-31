@@ -1,7 +1,8 @@
 PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS users (
  id INTEGER PRIMARY KEY, phone TEXT UNIQUE NOT NULL,
- name TEXT NOT NULL, salt TEXT NOT NULL, password_hash TEXT NOT NULL
+ name TEXT NOT NULL, salt TEXT NOT NULL, password_hash TEXT NOT NULL,
+ role TEXT NOT NULL DEFAULT 'VOTER' CHECK(role IN ('MANAGER','VOTER'))
 );
 CREATE TABLE IF NOT EXISTS sessions (
  token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), expires INTEGER NOT NULL
@@ -41,4 +42,10 @@ CREATE TABLE IF NOT EXISTS choices (
 CREATE TABLE IF NOT EXISTS audit (
  id INTEGER PRIMARY KEY, election_id INTEGER NOT NULL REFERENCES elections(id),
  actor_id INTEGER NOT NULL REFERENCES users(id), action TEXT NOT NULL, created INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS verification_codes (
+ phone TEXT NOT NULL, browser TEXT NOT NULL, purpose TEXT NOT NULL,
+ code_hash TEXT NOT NULL, expires INTEGER NOT NULL, created INTEGER NOT NULL,
+ attempts INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(phone,browser,purpose)
 );
