@@ -1,0 +1,11 @@
+# Inferred from imports; versions are not yet validated or pinned.
+pyspark
+pandas
+numpy
+pymongo[srv]
+jieba
+scikit-learn
+matplotlib
+seaborn
+wordcloud
+joblib
