@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pkl
+*.csv
+*.jsonl
+*.parquet
+*.log
+*.png
+*.jpg
+analysis_report.txt
+machine_learning_report.txt
