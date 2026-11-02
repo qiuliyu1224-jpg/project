@@ -49,3 +49,6 @@ CREATE TABLE IF NOT EXISTS verification_codes (
  attempts INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(phone,browser,purpose)
 );
+CREATE TABLE IF NOT EXISTS images (
+ id TEXT PRIMARY KEY, content BLOB NOT NULL, created INTEGER NOT NULL
+);

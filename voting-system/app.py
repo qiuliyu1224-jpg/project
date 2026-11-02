@@ -40,6 +40,15 @@ def init_db():
             if 'role' not in columns:
                 con.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'VOTER' CHECK(role IN ('MANAGER','VOTER'))")
                 con.execute("UPDATE users SET role='MANAGER' WHERE id IN (SELECT creator_id FROM elections)")
+            for table, changes in {
+                'elections': [('planned_end','INTEGER'), ('submissions_open','INTEGER NOT NULL DEFAULT 0'),('allow_submissions','INTEGER NOT NULL DEFAULT 0')],
+                'candidates': [('description',"TEXT NOT NULL DEFAULT ''"),('image_id','TEXT REFERENCES images(id)'),
+                    ('submitter_id','INTEGER REFERENCES users(id)'),('review_status',"TEXT NOT NULL DEFAULT 'APPROVED' CHECK(review_status IN ('PENDING','APPROVED','REJECTED'))"),
+                    ('review_reason',"TEXT NOT NULL DEFAULT ''")]
+            }.items():
+                current={r['name'] for r in con.execute(f'PRAGMA table_info({table})')}
+                for column, definition in changes:
+                    if column not in current: con.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
     finally:
         con.close()
 
@@ -100,7 +109,7 @@ def submit_ballot(con, event_id, user_id, form):
         rid = con.execute('SELECT id FROM rounds WHERE election_id=? AND number=1', (event_id,)).fetchone()['id']
         if con.execute('SELECT 1 FROM ballots WHERE round_id=? AND user_id=?', (rid, user_id)).fetchone():
             raise Problem('ALREADY_VOTED: one ballot per round.')
-        ids = [r['id'] for r in con.execute('SELECT id FROM candidates WHERE election_id=? ORDER BY id', (event_id,))]
+        ids = [r['id'] for r in con.execute("SELECT id FROM candidates WHERE election_id=? AND review_status='APPROVED' ORDER BY id", (event_id,))]
         selections = []
         if event['method'] == 'SINGLE':
             raw = scalar(form, 'candidate')
@@ -127,11 +136,11 @@ def submit_ballot(con, event_id, user_id, form):
 def get_results(con, event_id):
     return con.execute('SELECT c.id,c.name,COALESCE(SUM(v.score),0) AS total FROM candidates c '
                        'LEFT JOIN choices v ON v.candidate_id=c.id AND v.election_id=c.election_id '
-                       'WHERE c.election_id=? GROUP BY c.id ORDER BY total DESC,c.id', (event_id,)).fetchall()
+                       "WHERE c.election_id=? AND c.review_status='APPROVED' GROUP BY c.id ORDER BY total DESC,c.id", (event_id,)).fetchall()
 
 
 def app(env, start):
-    from web import dispatch
+    from web3 import dispatch
     return dispatch(env, start)
 
 
