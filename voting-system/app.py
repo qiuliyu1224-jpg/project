@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from http.cookies import SimpleCookie, CookieError
 from pathlib import Path
 from urllib.parse import parse_qs
-from wsgiref.simple_server import make_server
+from demo_server import create_server
 
 ROOT = Path(__file__).resolve().parent
 DB = Path(os.environ.get('VOTING_DB', str(ROOT / 'data' / 'voting.sqlite3')))
@@ -41,20 +41,35 @@ def init_db():
                 con.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'VOTER' CHECK(role IN ('MANAGER','VOTER'))")
                 con.execute("UPDATE users SET role='MANAGER' WHERE id IN (SELECT creator_id FROM elections)")
             for table, changes in {
-                'elections': [('planned_end','INTEGER'), ('submissions_open','INTEGER NOT NULL DEFAULT 0'),('allow_submissions','INTEGER NOT NULL DEFAULT 0')],
+                'elections': [('planned_end','INTEGER'), ('submissions_open','INTEGER NOT NULL DEFAULT 0'),('allow_submissions','INTEGER NOT NULL DEFAULT 0'),
+                    ('voting_mode','TEXT'),('max_choices','INTEGER NOT NULL DEFAULT 1'),('score_optional','INTEGER NOT NULL DEFAULT 0'),
+                    ('current_round','INTEGER NOT NULL DEFAULT 1'),('paused','INTEGER NOT NULL DEFAULT 0'),('revisions','INTEGER NOT NULL DEFAULT 0'),
+                    ('announcement',"TEXT NOT NULL DEFAULT ''"),('tags',"TEXT NOT NULL DEFAULT ''"),('invite_salt',"TEXT NOT NULL DEFAULT ''"),('invite_hash',"TEXT NOT NULL DEFAULT ''")],
+                'users': [('password_set','INTEGER NOT NULL DEFAULT 0')],
+                'rounds': [('snapshot',"TEXT NOT NULL DEFAULT ''"),('eligible',"TEXT NOT NULL DEFAULT ''"),('is_runoff','INTEGER NOT NULL DEFAULT 0')],
                 'candidates': [('description',"TEXT NOT NULL DEFAULT ''"),('image_id','TEXT REFERENCES images(id)'),
                     ('submitter_id','INTEGER REFERENCES users(id)'),('review_status',"TEXT NOT NULL DEFAULT 'APPROVED' CHECK(review_status IN ('PENDING','APPROVED','REJECTED'))"),
-                    ('review_reason',"TEXT NOT NULL DEFAULT ''")]
+                    ('review_reason',"TEXT NOT NULL DEFAULT ''"),('active','INTEGER NOT NULL DEFAULT 1')]
             }.items():
                 current={r['name'] for r in con.execute(f'PRAGMA table_info({table})')}
                 for column, definition in changes:
                     if column not in current: con.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
+            con.executescript('''CREATE TABLE IF NOT EXISTS preferences (
+                ballot_id INTEGER NOT NULL REFERENCES ballots(id), candidate_id INTEGER NOT NULL REFERENCES candidates(id),
+                position INTEGER NOT NULL CHECK(position BETWEEN 1 AND 20),
+                PRIMARY KEY(ballot_id,candidate_id), UNIQUE(ballot_id,position));
+                CREATE TABLE IF NOT EXISTS event_access (election_id INTEGER REFERENCES elections(id), user_id INTEGER REFERENCES users(id),
+                PRIMARY KEY(election_id,user_id));
+                CREATE TABLE IF NOT EXISTS attempt_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS event_changes (id INTEGER PRIMARY KEY, election_id INTEGER REFERENCES elections(id),
+                    round_number INTEGER NOT NULL, actor_id INTEGER REFERENCES users(id), kind TEXT NOT NULL,
+                    announcement TEXT NOT NULL, created INTEGER NOT NULL);''')
     finally:
         con.close()
 
 
 def refresh(con):
-    con.execute("UPDATE elections SET status='CLOSED' WHERE status='OPEN' AND ends_at<=?", (int(time.time()),))
+    con.execute("UPDATE elections SET status='CLOSED',paused=0 WHERE status='OPEN' AND ends_at<=?", (int(time.time()),))
 
 
 def password_hash(password, salt):
@@ -97,50 +112,18 @@ def create_event(con, user_id, form):
 
 
 def submit_ballot(con, event_id, user_id, form):
-    # Lock before checking the deadline and duplicates, then commit everything together.
-    con.execute('BEGIN IMMEDIATE')
-    try:
-        refresh(con)
-        event = con.execute('SELECT * FROM elections WHERE id=?', (event_id,)).fetchone()
-        if not event:
-            raise Problem('Event not found.', 404)
-        if event['status'] != 'OPEN' or event['ends_at'] <= time.time():
-            raise Problem('ELECTION_CLOSED: voting is not open.')
-        rid = con.execute('SELECT id FROM rounds WHERE election_id=? AND number=1', (event_id,)).fetchone()['id']
-        if con.execute('SELECT 1 FROM ballots WHERE round_id=? AND user_id=?', (rid, user_id)).fetchone():
-            raise Problem('ALREADY_VOTED: one ballot per round.')
-        ids = [r['id'] for r in con.execute("SELECT id FROM candidates WHERE election_id=? AND review_status='APPROVED' ORDER BY id", (event_id,))]
-        selections = []
-        if event['method'] == 'SINGLE':
-            raw = scalar(form, 'candidate')
-            if raw not in [str(i) for i in ids]:
-                raise Problem('INVALID_FORMAT: select one candidate from this event.')
-            selections = [(int(raw), 1)]
-        else:
-            for cid in ids:
-                raw = scalar(form, 'score_' + str(cid))
-                if raw not in ('0', '1', '2', '3', '4', '5'):
-                    raise Problem('INVALID_FORMAT: rate every candidate, using integers 0–5. Unanswered is not zero.')
-                selections.append((cid, int(raw)))
-        bid = con.execute('INSERT INTO ballots(election_id,round_id,user_id) VALUES(?,?,?)',
-                          (event_id, rid, user_id)).lastrowid
-        con.executemany('INSERT INTO choices(ballot_id,election_id,candidate_id,score) VALUES(?,?,?,?)',
-                        [(bid, event_id, cid, score) for cid, score in selections])
-        con.commit()
-        return bid
-    except Exception:
-        con.rollback()
-        raise
+    from voting_rules import submit
+    return submit(con, event_id, user_id, form)
 
 
 def get_results(con, event_id):
-    return con.execute('SELECT c.id,c.name,COALESCE(SUM(v.score),0) AS total FROM candidates c '
-                       'LEFT JOIN choices v ON v.candidate_id=c.id AND v.election_id=c.election_id '
-                       "WHERE c.election_id=? AND c.review_status='APPROVED' GROUP BY c.id ORDER BY total DESC,c.id", (event_id,)).fetchall()
+    from voting_rules import counts, event_row
+    event = event_row(con.execute('SELECT * FROM elections WHERE id=?', (event_id,)).fetchone())
+    return counts(con, event)['rows']
 
 
 def app(env, start):
-    from web3 import dispatch
+    from web4 import dispatch
     return dispatch(env, start)
 
 
@@ -148,6 +131,8 @@ if __name__ == '__main__':
     import sys
     sys.modules['app'] = sys.modules[__name__]
     init_db()
+    from maintenance import start_maintenance
+    start_maintenance()
     print('Open http://127.0.0.1:8000 - VoteLab workspace.', flush=True)
-    with make_server('127.0.0.1', 8000, app) as server:
+    with create_server('127.0.0.1', 8000, app) as server:
         server.serve_forever()

@@ -12,7 +12,7 @@ def stamp(value):
 
 
 def issue_code(con, phone, browser, purpose):
-    if not re.fullmatch(r'[0-9]{8,15}',phone) or purpose not in ('login','register'):
+    if not re.fullmatch(r'[0-9]{8,15}',phone) or purpose not in ('login','register','reset'):
         raise Problem('Enter an 8–15 digit phone account / 手机号需为8–15位数字。')
     row=con.execute('SELECT * FROM verification_codes WHERE phone=? AND browser=? AND purpose=?',(phone,browser,purpose)).fetchone()
     if row and now()-row['created']<60:

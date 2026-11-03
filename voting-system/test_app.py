@@ -32,6 +32,10 @@ class Client:
         response=b''.join(app.app(env,start)); self.last_raw=response
         return meta['status'],response.decode('utf-8',errors='replace'),meta['headers']
     def post(self,path,fields,files=None):
+        if re.fullmatch(r'/e/\d+/(vote|confirm)',path) and 'round_id' not in fields:
+            with app.connect() as con:
+                row=con.execute('SELECT r.id FROM rounds r JOIN elections ev ON ev.id=r.election_id AND ev.current_round=r.number WHERE ev.id=?',(int(path.split('/')[2]),)).fetchone()
+            if row: fields={**fields,'round_id':str(row['id'])}
         _,body,_=self.request('/login'); csrf=re.search(r'name="csrf" value="([a-f0-9]+)"',body)[1]
         return self.request(path,{**fields,'csrf':csrf},files)
     def code(self,phone,purpose):
@@ -39,8 +43,8 @@ class Client:
         if status!=200: raise AssertionError((status,body))
         return re.search(r'class="otp-code">([0-9]{6})',body)[1]
     def register(self,phone,name='Tester'):
-        return self.post('/register',{'phone':phone,'name':name,'code':self.code(phone,'register')})
-    def login(self,phone): return self.post('/login',{'phone':phone,'code':self.code(phone,'login')})
+        return self.post('/register',{'phone':phone,'name':name,'password':'Test-only-pass123','password_confirm':'Test-only-pass123','code':self.code(phone,'register')})
+    def login(self,phone): return self.post('/login',{'phone':phone,'password':'Test-only-pass123'})
 
 
 class VotingTests(unittest.TestCase):
@@ -73,7 +77,7 @@ class VotingTests(unittest.TestCase):
         with app.connect() as con: return con.execute('SELECT * FROM candidates WHERE election_id=?',(eid,)).fetchone()
 
     def test_preview_does_not_vote(self):
-        self.assertIn('预览',self.owner.request(f'/e/{self.eid}/preview')[1]); self.assertEqual(self.voter.post(f'/e/{self.eid}/vote',{'candidate':str(self.ids()[0])})[0],400); self.assertEqual(self.counts(),(0,0))
+        self.assertIn('预览',self.owner.request(f'/e/{self.eid}/preview')[1]); self.assertEqual(self.voter.post(f'/e/{self.eid}/vote',{'candidate':str(self.ids()[0])})[0],409); self.assertEqual(self.counts(),(0,0))
     def test_single_duplicate_and_confirmation(self):
         self.open(); data={'candidate':str(self.ids()[0])}
         self.assertEqual(self.voter.post(f'/e/{self.eid}/confirm',data)[0],200); self.assertEqual(self.counts(),(0,0))
@@ -84,14 +88,14 @@ class VotingTests(unittest.TestCase):
         self.assertEqual(self.voter.post(f'/e/{self.eid}/vote',{'candidate':[str(i) for i in self.ids()]})[0],400); self.assertEqual(self.counts(),(0,0))
     def test_score_zero_missing_range_and_saved_readonly(self):
         eid=self.create('SCORE'); self.open(eid); a,b=self.ids(eid)
-        for data in ({f'score_{a}':'0'},{f'score_{a}':'0',f'score_{b}':'6'},{f'score_{a}':'1.5',f'score_{b}':'2'}): self.assertEqual(self.voter.post(f'/e/{eid}/vote',data)[0],400)
+        for data in ({},{f'score_{a}':'0',f'score_{b}':'6'},{f'score_{a}':'1.5',f'score_{b}':'2'}): self.assertEqual(self.voter.post(f'/e/{eid}/vote',data)[0],400)
         self.assertEqual(self.voter.post(f'/e/{eid}/vote',{f'score_{a}':'0',f'score_{b}':'5'})[0],303)
         body=self.voter.request(f'/e/{eid}')[1]; self.assertIn(f'name="score_{a}" value="0" checked disabled',body)
         with app.connect() as con: self.assertEqual([r['total'] for r in app.get_results(con,eid)],[5,0])
     def test_deadline_final_check(self):
         self.open()
         with app.connect() as con: con.execute('UPDATE elections SET ends_at=? WHERE id=?',(int(time.time())-1,self.eid))
-        self.assertEqual(self.voter.post(f'/e/{self.eid}/vote',{'candidate':str(self.ids()[0])})[0],400); self.assertEqual(self.counts(),(0,0))
+        self.assertEqual(self.voter.post(f'/e/{self.eid}/vote',{'candidate':str(self.ids()[0])})[0],409); self.assertEqual(self.counts(),(0,0))
     def test_result_publication_and_private_access(self):
         for visibility in ('PUBLIC','PRIVATE'):
             eid=self.create(visibility=visibility); self.open(eid)
@@ -115,25 +119,26 @@ class VotingTests(unittest.TestCase):
         data={'candidate':str(self.ids()[0])}; self.assertEqual(self.voter.post(f'/e/{self.eid}/vote',data)[0],409); self.assertEqual(self.counts(),(0,0))
         with app.connect() as con: con.execute('DROP TRIGGER fail')
         self.assertEqual(self.voter.post(f'/e/{self.eid}/vote',data)[0],303)
-    def test_csrf_unauth_logout_and_password_login_removed(self):
+    def test_csrf_unauth_logout_and_password_login(self):
         self.assertEqual(self.owner.request('/create',{'title':'No CSRF'})[0],403); self.assertEqual(Client().request('/create')[0],401)
-        self.assertNotIn('type="password"',Client().request('/login')[1])
-        self.assertEqual(Client().post('/login',{'phone':'12345678','password':'demo-pass-123'})[0],400)
+        self.assertIn('type="password"',Client().request('/login')[1])
+        self.assertEqual(Client().post('/login',{'phone':'12345678','password':'wrong-password'})[0],401)
         self.owner.post('/logout',{}); self.assertEqual(self.owner.request('/create')[0],401)
-    def test_code_only_login_registration_replay_and_duplicate(self):
+    def test_password_registration_replay_and_duplicate(self):
         guest=Client(); self.assertEqual(guest.login('12345678')[0],303)
         self.assertEqual(guest.post('/register',{'phone':'12345678','name':'Dup','code':'000000'})[0],409)
-        code=guest.code('33334444','register'); payload={'phone':'33334444','name':'New','code':code}
-        self.assertEqual(guest.post('/register',payload)[0],303); self.assertEqual(guest.post('/login',{'phone':'33334444','code':code})[0],400)
+        code=guest.code('33334444','register'); payload={'phone':'33334444','name':'New','password':'Test-only-pass123','password_confirm':'Test-only-pass123','code':code}
+        self.assertEqual(guest.post('/register',payload)[0],303); self.assertEqual(guest.post('/login',{'phone':'33334444','code':code})[0],401)
     def test_codes_expiry_attempts_binding_and_cooldown(self):
-        guest=Client(); code=guest.code('12345678','login')
-        self.assertEqual(guest.post('/auth/code',{'phone':'12345678','purpose':'login'})[0],429)
-        self.assertEqual(Client().post('/login',{'phone':'12345678','code':code})[0],400)
+        guest=Client(); code=guest.code('12345678','reset')
+        self.assertEqual(guest.post('/auth/code',{'phone':'12345678','purpose':'reset'})[0],429)
+        data={'phone':'12345678','password':'New-test-pass123','password_confirm':'New-test-pass123','code':code}
+        self.assertEqual(Client().post('/reset',data)[0],400)
         wrong='000000' if code!='000000' else '111111'
-        for _ in range(5): self.assertEqual(guest.post('/login',{'phone':'12345678','code':wrong})[0],400)
-        self.assertEqual(guest.post('/login',{'phone':'12345678','code':code})[0],400)
+        for _ in range(5): self.assertEqual(guest.post('/reset',{**data,'code':wrong})[0],400)
+        self.assertEqual(guest.post('/reset',data)[0],400)
         with app.connect() as con: con.execute('UPDATE verification_codes SET attempts=0,expires=?',(int(time.time())-1,))
-        self.assertEqual(guest.post('/login',{'phone':'12345678','code':code})[0],400)
+        self.assertEqual(guest.post('/reset',data)[0],400)
     def test_language_persists_across_pages_and_unsafe_redirect_blocked(self):
         self.assertIn('创建一场新活动',self.owner.request('/create')[1])
         self.assertEqual(self.owner.post('/language',{'lang':'en','next':'/create'})[2]['Location'],'/create')
@@ -178,9 +183,9 @@ class VotingTests(unittest.TestCase):
         self.assertEqual(self.voter.request('/media/'+row['image_id'])[0],200); self.assertEqual(self.owner.request('/media/'+row['image_id'])[0],200); self.assertEqual(self.other.request('/media/'+row['image_id'])[0],404)
         self.assertNotIn('Applicant',self.other.request(f'/e/{eid}')[1]); self.assertEqual(self.apply(eid)[0],409)
         self.assertIn('待审核',self.voter.request('/my-entries')[1])
-    def test_application_requires_image(self):
+    def test_application_image_optional(self):
         eid=self.create(accepting=True,empty=True); self.owner.post(f'/e/{eid}/collect',{})
-        self.assertEqual(self.voter.post(f'/e/{eid}/apply',{'name':'No image','description':''})[0],400)
+        self.assertEqual(self.voter.post(f'/e/{eid}/apply',{'name':'No image','description':''})[0],303)
     def test_review_permissions_rejection_reason_and_feedback(self):
         eid=self.create(accepting=True,empty=True); self.owner.post(f'/e/{eid}/collect',{}); self.apply(eid); row=self.submitted(eid)
         payload={'candidate_id':str(row['id']),'verdict':'REJECTED','reason':''}
