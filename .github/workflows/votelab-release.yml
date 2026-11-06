@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/votelab-release.yml
       - voting-system/**
+      - README.md
 
 permissions:
   contents: read
