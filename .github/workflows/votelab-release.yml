@@ -28,8 +28,8 @@ jobs:
         run: ./voting-system/release/build-windows.ps1
       - uses: actions/upload-artifact@v7
         with:
+          name: votelab-windows-x64
           path: artifacts/*.zip
-          archive: false
           if-no-files-found: error
 
   macos:
@@ -59,8 +59,8 @@ jobs:
         run: bash voting-system/release/macos/build-macos.sh voting-system artifacts
       - uses: actions/upload-artifact@v7
         with:
+          name: votelab-macos-${{ matrix.arch }}
           path: artifacts/*.zip
-          archive: false
           if-no-files-found: error
 
   publish:
@@ -88,7 +88,8 @@ jobs:
             echo 'The release source archive must contain VoteLab files only.'
             exit 1
           fi
-          (cd artifacts && test "$(find . -maxdepth 1 -name '*.zip' | wc -l)" -eq 3 && sha256sum *.zip > SHA256SUMS.txt)
+          ls -l artifacts
+          (cd artifacts && test "$(find . -maxdepth 1 -type f -name '*.zip' | wc -l)" -eq 3 && sha256sum *.zip > SHA256SUMS.txt)
           if status=$(gh release view "$RELEASE_TAG" --json isDraft,targetCommitish --jq '[.isDraft,.targetCommitish] | @tsv'); then
             IFS=$'\t' read -r draft target <<< "$status"
             if [[ "$draft" != true || "$target" != "$GITHUB_SHA" ]]; then
