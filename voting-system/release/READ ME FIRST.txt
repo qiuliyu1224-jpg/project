@@ -1,0 +1,37 @@
+VoteLab 04 - Team Test Release
+
+Windows: Extract the entire ZIP, then double-click Start VoteLab.bat.
+macOS: Extract the entire ZIP and open VoteLab.app for your Mac's processor.
+VoteLab opens in your browser at http://127.0.0.1:8765/.
+Leave VoteLab running while you use the browser. On Windows, press Ctrl+C
+in the VoteLab window when you are finished.
+
+Try it
+1. Register with a fictional phone account. The demo verification code
+   appears on screen. You can use Hong Kong (+852) and 12345678 for testing.
+2. Create an activity, add two entries, preview it and open voting.
+3. Register a second fictional account to try voting. Check that the vote
+   is saved, then use the organiser account to close and publish results.
+
+Your saved data
+Windows: %LOCALAPPDATA%\VoteLab\voting.sqlite3
+macOS: ~/Library/Application Support/VoteLab/voting.sqlite3
+New versions read the same database. VoteLab creates a SQLite snapshot
+in the backups subfolder before each startup with an existing database.
+Keep a copy of the VoteLab data folder elsewhere if you want protection
+against disk failure or deleting the folder. Each computer has its own
+activities and votes. Each teammate can test with their own accounts.
+
+If the page does not open, open http://127.0.0.1:8765/ manually. If the
+launcher reports that the port is busy, close the earlier VoteLab instance
+and launch again. For a second test account use another browser profile
+or a private window so the organiser and voter sessions stay separate.
+
+中文快速操作
+Windows 请完整解压 ZIP，再双击 Start VoteLab.bat。
+Mac 请下载与你的芯片相符的版本，解压后打开 VoteLab.app。
+浏览器会打开 http://127.0.0.1:8765/，使用时请让 VoteLab 保持运行。
+可用虚构手机号注册测试账号，例如选香港 +852 后输入 12345678。
+演示验证码会显示在页面上。用第二个账号投票时，可开无痕窗口。
+换新版可直接使用原来的数据库，保存路径见上面。每台电脑的数据独立。
+关闭 Windows 版时，可在 VoteLab 窗口按 Ctrl+C。
