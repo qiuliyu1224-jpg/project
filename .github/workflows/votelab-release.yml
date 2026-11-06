@@ -10,7 +10,9 @@ on:
 permissions:
   contents: read
 
-concurrency: votelab-team-release
+concurrency:
+  group: votelab-team-release
+  cancel-in-progress: true
 
 jobs:
   windows:
@@ -81,6 +83,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if git ls-files -- 'spark*.py' | grep -q .; then
+            echo 'The release source archive must contain VoteLab files only.'
+            exit 1
+          fi
           (cd artifacts && test "$(find . -maxdepth 1 -name '*.zip' | wc -l)" -eq 3 && sha256sum *.zip > SHA256SUMS.txt)
           if status=$(gh release view "$RELEASE_TAG" --json isDraft,targetCommitish --jq '[.isDraft,.targetCommitish] | @tsv'); then
             IFS=$'\t' read -r draft target <<< "$status"
