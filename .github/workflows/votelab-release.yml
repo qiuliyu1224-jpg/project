@@ -1,0 +1,96 @@
+name: Package VoteLab team test release
+
+on:
+  push:
+    branches: [codex/votelab-packaging]
+    paths:
+      - .github/workflows/votelab-release.yml
+      - voting-system/**
+
+permissions:
+  contents: read
+
+concurrency: votelab-team-release
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Build and verify the Windows ZIP
+        shell: pwsh
+        run: ./voting-system/release/build-windows.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          path: artifacts/*.zip
+          archive: false
+          if-no-files-found: error
+
+  macos:
+    name: macOS ${{ matrix.chip }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            chip: Apple Silicon
+          - runner: macos-15-intel
+            arch: x86_64
+            chip: Intel
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Build and verify the macOS ZIP
+        env:
+          VOTELAB_MACOS_ARCH: ${{ matrix.arch }}
+        run: bash voting-system/release/macos/build-macos.sh voting-system artifacts
+      - uses: actions/upload-artifact@v7
+        with:
+          path: artifacts/*.zip
+          archive: false
+          if-no-files-found: error
+
+  publish:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: votelab-v0.4.1-team-test
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish the tested archives as a team prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd artifacts && test "$(find . -maxdepth 1 -name '*.zip' | wc -l)" -eq 3 && sha256sum *.zip > SHA256SUMS.txt)
+          if status=$(gh release view "$RELEASE_TAG" --json isDraft,targetCommitish --jq '[.isDraft,.targetCommitish] | @tsv'); then
+            IFS=$'\t' read -r draft target <<< "$status"
+            if [[ "$draft" != true || "$target" != "$GITHUB_SHA" ]]; then
+              echo 'Existing release is already published or points to a different commit.'
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --draft --prerelease \
+              --title 'VoteLab 0.4.1 — Team test' --notes-file voting-system/release/RELEASE_NOTES.md
+          fi
+          gh release upload "$RELEASE_TAG" artifacts/*.zip artifacts/SHA256SUMS.txt --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease
