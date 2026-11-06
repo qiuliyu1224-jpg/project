@@ -49,7 +49,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.13'
       - name: Build and verify the macOS ZIP
         env:
           VOTELAB_MACOS_ARCH: ${{ matrix.arch }}
