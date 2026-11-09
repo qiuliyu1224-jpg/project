@@ -23,7 +23,7 @@ def revision(con,event,uid,form,files):
     if event['revisions']>=3: raise Problem('All 3 revisions have been used / 三次修改机会已用完。',409)
     announcement=scalar(form,'announcement').strip()
     if not 1<=len(announcement)<=1000: raise Problem('Write a change announcement / 请填写修改公告，最多1000字。')
-    if scalar(form,'method')!=event['method'] or scalar(form,'max_choices','1')!=str(event['max_choices']):
+    if scalar(form,'method')!=event['method'] or (event['method']=='SINGLE' and scalar(form,'max_choices','1')!=str(event['max_choices'])):
         raise Problem('Voting method and selection limit stay locked / 开票后投票方式与最多可选数量仍锁定。')
     before=[dict(c) for c in rules.candidates(con,event,True)]
     rnd=rules.current_round(con,event)
