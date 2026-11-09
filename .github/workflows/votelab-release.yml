@@ -2,7 +2,7 @@ name: Package VoteLab team test release
 
 on:
   push:
-    branches: [codex/votelab-042]
+    branches: [codex/votelab-043]
     paths:
       - .github/workflows/votelab-release.yml
       - voting-system/**
@@ -71,7 +71,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      RELEASE_TAG: votelab-v0.4.2-team-test
+      RELEASE_TAG: votelab-v0.4.3-team-test
     steps:
       - uses: actions/checkout@v5
         with:
@@ -98,7 +98,7 @@ jobs:
             fi
           else
             gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --draft --prerelease \
-              --title 'VoteLab 0.4.2 — Team test' --notes-file voting-system/release/RELEASE_NOTES.md
+              --title 'VoteLab 0.4.3 — Team test' --notes-file voting-system/release/RELEASE_NOTES.md
           fi
           gh release upload "$RELEASE_TAG" artifacts/*.zip artifacts/SHA256SUMS.txt --clobber
           gh release edit "$RELEASE_TAG" --draft=false --prerelease
