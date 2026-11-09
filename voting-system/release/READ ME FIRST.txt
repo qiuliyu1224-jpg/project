@@ -1,4 +1,4 @@
-VoteLab 0.4.2 — 小组试用版 / Team test release
+VoteLab 0.4.3 — 小组试用版 / Team test release
 
 Windows x64 请完整解压 ZIP，再双击 Start VoteLab.bat。
 Mac 请按芯片选择 Apple Silicon 或 Intel，解压后打开 VoteLab.app。
