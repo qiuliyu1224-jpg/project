@@ -1,4 +1,10 @@
-# VoteLab 0.4.2
+# VoteLab 0.4.3
+
+修复多数决选仍显示“每人最多选几项”的问题。数量设置现在仅适用于单／多选。多数决选明确说明每人每轮选1个作品，第一轮无人过半时由前两名进入第二轮重新投票。评分和RCV也会隐藏无关的数量设置。旧活动和选票可继续使用。
+
+Fixes the selection-limit field appearing for majority runoff. Only single/multiple choice uses the configurable limit. Majority runoff explains one choice per voter per round and a fresh top-two vote when nobody has a majority. Rating and RCV forms hide the irrelevant limit as well. Existing activities and ballots are retained.
+
+## Included from 0.4.2
 
 本版修复注册和密码页面的试用问题，并整理首页展示及输入提示。提供 Windows x64、Mac Apple Silicon 和 Mac Intel 安装包，运行环境包含在包内。
 
