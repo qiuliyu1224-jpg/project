@@ -2,6 +2,62 @@
 (() => {
   const zh = document.documentElement.lang.startsWith('zh');
   const text = (a,b) => zh ? a : b;
+  document.querySelectorAll('[data-get-code]').forEach(button => {
+    button.addEventListener('click', async event => {
+      event.preventDefault();
+      const form = button.form;
+      const phone = form.elements.phone;
+      if (!phone.reportValidity()) return;
+      const status = form.querySelector('[data-code-status]');
+      const label = button.textContent;
+      const body = new URLSearchParams();
+      ['csrf', 'country', 'phone', 'purpose'].forEach(name => body.set(name, form.elements[name].value));
+      button.disabled = true;
+      button.textContent = text('正在获取…', 'Requesting…');
+      status.hidden = false;
+      status.classList.remove('error');
+      status.textContent = text('正在获取验证码…', 'Requesting a verification code…');
+      let received = false;
+      try {
+        const response = await fetch('/auth/code', {
+          method: 'POST', credentials: 'same-origin',
+          headers: {'Accept': 'application/json'}, body
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          status.classList.add('error');
+          status.textContent = result.error;
+          return;
+        }
+        status.textContent = result.message + ' ';
+        const code = document.createElement('strong');
+        code.className = 'otp-code';
+        code.textContent = result.code;
+        status.append(code);
+        received = true;
+      } catch (_) {
+        status.classList.add('error');
+        status.textContent = text('暂时无法确认验证码请求，请稍后重试。已填写内容已保留。', 'The code request could not be confirmed. Try again shortly. Your entries have been kept.');
+      } finally {
+        button.disabled = false;
+        button.textContent = label;
+        if (received) {
+          let remaining = 60;
+          button.disabled = true;
+          button.textContent = remaining + text('秒后重试', 's to retry');
+          const timer = setInterval(() => {
+            remaining -= 1;
+            button.textContent = remaining + text('秒后重试', 's to retry');
+            if (remaining === 0) {
+              clearInterval(timer);
+              button.disabled = false;
+              button.textContent = label;
+            }
+          }, 1000);
+        }
+      }
+    });
+  });
   document.querySelectorAll('[data-show-password]').forEach(box => box.addEventListener('change', () => {
     box.closest('form').querySelectorAll('input[name="password"],input[name="password_confirm"]').forEach(input => input.type = box.checked ? 'text' : 'password');
   }));
