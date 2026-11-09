@@ -50,7 +50,7 @@ Copy-Item -LiteralPath (Join-Path $source 'static') -Destination $appDirectory.F
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Start VoteLab.bat') -Destination $package.FullName
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'READ ME FIRST.txt') -Destination $package.FullName
 
-$archive = Join-Path $output 'VoteLab-0.4.1-Windows-x64.zip'
+$archive = Join-Path $output 'VoteLab-0.4.2-Windows-x64.zip'
 Compress-Archive -Path (Join-Path $package.FullName '*') -DestinationPath $archive -CompressionLevel Optimal
 $extracted = Join-Path $work 'Extracted VoteLab'
 Expand-Archive -LiteralPath $archive -DestinationPath $extracted
