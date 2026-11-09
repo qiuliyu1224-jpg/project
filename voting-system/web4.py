@@ -37,6 +37,9 @@ def dispatch(env,start):
     def response(body,status=200):
         phrase={200:'OK',303:'See Other',400:'Bad Request',401:'Unauthorized',403:'Forbidden',404:'Not Found',409:'Conflict',413:'Content Too Large',429:'Too Many Requests',500:'Internal Server Error'}
         start(f'{status} {phrase.get(status,"Error")}',headers); return [body.encode('utf-8')]
+    def json_response(data,status=200):
+        headers[0]=('Content-Type','application/json; charset=utf-8')
+        return response(json.dumps(data,ensure_ascii=False),status)
     def redirect(url): headers.append(('Location',url)); return response('',303)
     def require():
         if not user: raise Problem('Please log in to continue / 请先登录后再操作。',401)
@@ -104,6 +107,8 @@ def dispatch(env,start):
                 if purpose in ('login','reset') and not row: raise Problem('Account not registered; create an account / 此账号未注册，请先注册。',401)
                 if purpose=='register' and row: raise Problem('Account exists; log in instead / 此账号已注册，请直接登录。',409)
                 code=issue_code(con,phone,browser,purpose)
+                if 'application/json' in env.get('HTTP_ACCEPT',''):
+                    return json_response({'code':code,'message':t('演示验证码（未发送短信），5分钟有效，仅当前浏览器可用。','Demo verification code (no SMS sent). Valid for 5 minutes in this browser.')})
                 return response(view.auth(purpose=='register',phone,scalar(form,'name'),code,reset=purpose=='reset'))
             if path in ('/login','/register','/reset'):
                 phone=phone_number(); row=con.execute('SELECT * FROM users WHERE phone=?',(phone,)).fetchone()
@@ -228,6 +233,7 @@ def dispatch(env,start):
             title=t('我的活动','My events') if section=='dashboard' else t('我的投票','My votes') if section=='my-votes' else t('发现值得支持的想法','Discover ideas worth supporting')
             body=view.head(title,t('浏览作品，参与评选。','Explore entries and make your choice.'),link('/create',t('＋ 创建活动','＋ Create event'),'') if user else link('/register',t('注册并参与','Create account'),''))
             if path=='/': body+=f'<section class="hero"><div class="hero-copy"><p class="eyebrow">VOTELAB</p><h2>{t("先看清楚，再做选择。","See the entry. Make your choice.")}</h2><p>{t("单／多选、多数决选、排序或星级评分。","Single / multiple choice, majority, ranked choice and star ratings.")}</p></div><div class="hero-art"><div class="hero-symbol">✦</div></div></section>'
+            if path=='/': body+=view.examples()
             selected=scalar(query,'status','ALL'); filters=[('ALL',t('全部','All')),('OPEN',t('投票中','Voting')),('ENTRIES',t('报名中','Applications')),('CLOSED',t('已结束','Closed'))]+([('DRAFT',t('草稿','Drafts'))] if path=='/dashboard' else [])
             tabs=''.join(f'<a class="{"active" if selected==value else ""}" href="{path}?status={value}">{label}</a>' for value,label in filters)
             body+=f'<div class="toolbar"><div class="tabs">{tabs}</div><input class="search" data-search placeholder="{t("搜索名称或活动编号，如 V000005","Search title or event code, e.g. V000005")}"></div><div class="grid">'; count=0
@@ -361,6 +367,8 @@ def dispatch(env,start):
     except Problem as error:
         con.rollback(); message=error.message
         if ' / ' in message: message=message.split(' / ',1)[0 if lang=='en' else 1]
+        if path=='/auth/code' and 'application/json' in env.get('HTTP_ACCEPT',''):
+            return json_response({'error':message},error.status)
         body=view.head(t('无法完成这一步','Unable to complete this step'))+f'<section class="panel narrow"><div class="notice error" role="alert"><strong>{e(message)}</strong></div><div class="button-row">'
         if not user or path in ('/login','/register','/reset','/auth/code'):
             body+=link('/login',t('登录账号','Log in'))+link('/register',t('注册账号','Create account'))+link('/reset',t('重置密码','Reset password'))
