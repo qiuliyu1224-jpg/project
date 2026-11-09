@@ -111,7 +111,7 @@ def save_event(con,uid,form,files,eid=None):
     names=[r['name'].casefold() for r in allrows]
     if len(names)>20 or len(names)!=len(set(names)): raise Problem('Entry names must be distinct; at most 20 / 选项不能重名，最多20个。')
     if not accepting and len(names)<2: raise Problem('Add at least two entries, or enable applications / 请添加至少2项，或开启报名征集。')
-    try: limit=int(scalar(form,'max_choices','1'))
+    try: limit=int(scalar(form,'max_choices','1')) if method=='SINGLE' else 1
     except ValueError: raise Problem('Selection limit must be an integer / 可选数量必须为整数。')
     if not 1<=limit<=20: raise Problem('Selection limit must be 1–20 / 最多可选数量须为1～20。')
     con.execute('UPDATE elections SET title=?,method=?,voting_mode=?,max_choices=?,score_optional=1,visibility=?,planned_end=?,allow_submissions=?,submissions_open=CASE WHEN ?=0 THEN 0 ELSE submissions_open END WHERE id=?',(title,'SCORE' if method=='SCORE' else 'SINGLE',method,limit,visibility,end,accepting,accepting,eid))
