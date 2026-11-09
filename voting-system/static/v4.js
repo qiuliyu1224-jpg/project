@@ -74,7 +74,14 @@
   const eventForm=document.querySelector('[data-event-form]');
   if(eventForm) {
     const method=eventForm.querySelector('[name="method"]');
-    const refresh=()=>{ const group=eventForm.querySelector('[data-choice-limit]'); group.hidden=method.value!=='SINGLE'; };
+    const refresh=()=>{
+      const single = method.value === 'SINGLE';
+      const group = eventForm.querySelector('[data-choice-limit]');
+      group.hidden = !single;
+      group.querySelector('input').disabled = !single;
+      group.querySelector('input').required = single;
+      eventForm.querySelector('[data-majority-note]').hidden = method.value !== 'MAJORITY';
+    };
     method.addEventListener('change',refresh); refresh();
   }
   const ballot=document.querySelector('[data-ballot]');
