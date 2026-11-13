@@ -1,4 +1,4 @@
-VoteLab 0.4.3 — 小组试用版 / Team test release
+VoteLab 0.4.4 — 小组试用版 / Team test release
 
 Windows x64 请完整解压 ZIP，再双击 Start VoteLab.bat。
 Mac 请按芯片选择 Apple Silicon 或 Intel，解压后打开 VoteLab.app。
@@ -62,3 +62,17 @@ On Mac stop VoteLab in Activity Monitor. If port 8765 is busy, end the earlier a
 The Mac app has no Apple Developer ID signature or notarization. For a trusted
 download, follow Apple's first-run guidance if Gatekeeper requests confirmation.
 https://support.apple.com/102445
+
+
+0.4.4：新浏览器默认英文；已有语言偏好会保留。可在顶栏切换账号，不删除旧账号的数据。
+新建公开活动在最终轮次结束后自动发布；仅自己查看不公开。旧活动保留原手动发布设置，编辑保存后按新选项执行。
+结果页默认显示票数或平均评分，点击生成统计图可选择柱状、横向柱状或折线图。折线连接作品类别，不代表时间趋势。
+英文页面的活动名称、作品名及介绍通过 MyMemory 在线翻译，原文和表单编辑内容不改写。翻译需联网，第三方可能译错或限流；失败时显示英文状态并可主动查看原文。
+MyMemory 匿名额度为每日5000字符，结果缓存在本机；不会发送密码、手机号、邀请码或选票。不要在活动介绍中填写敏感资料。
+
+0.4.4: English is the default for a new browser; saved language preferences are respected. Switch account ends only the current session and keeps stored records.
+New public events publish at the end of the final voting round; private results stay creator-only. Untouched legacy events retain manual publication until explicitly saved with the new policy.
+Results show counts or average ratings first; Generate statistics chart offers column, horizontal bar and line charts. Lines connect entry categories and do not imply a time trend.
+Chinese activity text is machine-translated online by MyMemory for English display. Original records and editor fields remain unchanged. Network access and provider availability are required; translations may be wrong or unavailable.
+The anonymous provider allowance is 5000 characters per day. Successful translations are cached locally. Passwords, phone accounts, invitation codes and ballots are not sent. Do not enter sensitive information in activity descriptions.
+Provider documentation: https://mymemory.translated.net/doc/spec.php and https://mymemory.translated.net/doc/usagelimits.php
