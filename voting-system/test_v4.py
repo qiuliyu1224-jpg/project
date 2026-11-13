@@ -176,7 +176,7 @@ class V4Tests(unittest.TestCase):
         self.assertEqual(guest.post('/reset',data)[0],400)
 
     def test_country_format_and_error_actions(self):
-        guest=Client(); self.assertEqual(guest.post('/auth/code',{'phone':'123','country':'86','purpose':'register'})[0],400)
+        guest=Client('zh'); self.assertEqual(guest.post('/auth/code',{'phone':'123','country':'86','purpose':'register'})[0],400)
         self.assertEqual(guest.post('/auth/code',{'phone':'13800000000','country':'86','purpose':'register'})[0],200)
         status,body,_=guest.request('/create'); self.assertEqual(status,401); self.assertIn('登录账号',body)
         self.assertNotIn('上传失败时',body)
