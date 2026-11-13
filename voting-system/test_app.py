@@ -11,7 +11,7 @@ def picture(color='green',fmt='PNG'):
 
 
 class Client:
-    def __init__(self): self.cookies={}
+    def __init__(self,lang=None): self.cookies={} if lang is None else {'lang':lang}
     def request(self,path,fields=None,files=None,raw=None,content_type=None):
         if files is not None:
             boundary='VoteLabTestBoundary'
@@ -51,7 +51,9 @@ class VotingTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent)
         app.DB=Path(self.tmp.name)/'test.sqlite3'; app.init_db()
-        self.owner,self.voter,self.other=Client(),Client(),Client()
+        # These legacy acceptance scenarios assert Chinese copy explicitly.
+        # New default-language checks use a cookie-free Client().
+        self.owner,self.voter,self.other=Client('zh'),Client('zh'),Client('zh')
         self.assertEqual(self.owner.register('12345678','Owner')[0],303)
         self.assertEqual(self.voter.register('87654321','Participant')[0],303)
         self.assertEqual(self.other.register('11112222','Other')[0],303)
@@ -101,7 +103,9 @@ class VotingTests(unittest.TestCase):
             eid=self.create(visibility=visibility); self.open(eid)
             self.assertEqual(self.owner.request(f'/e/{eid}/results')[0],403)
             self.owner.post(f'/e/{eid}/close',{}); self.assertEqual(self.owner.request(f'/e/{eid}/results')[0],200)
-            self.assertEqual(self.voter.request(f'/e/{eid}/results')[0],403); self.owner.post(f'/e/{eid}/publish',{})
+            # Explicit PUBLIC saves now opt into publication at close; PRIVATE
+            # results remain inaccessible even if the owner presses publish.
+            self.assertEqual(self.voter.request(f'/e/{eid}/results')[0],200 if visibility=='PUBLIC' else 403); self.owner.post(f'/e/{eid}/publish',{})
             self.assertEqual(Client().request(f'/e/{eid}/results')[0],200 if visibility=='PUBLIC' else 403)
     def test_one_account_can_create_enter_and_vote(self):
         own=self.create(client=self.voter)
