@@ -119,6 +119,9 @@ def save_event(con,uid,form,files,eid=None):
     tags=scalar(form,'tags').strip()
     if len(tags)>120: raise Problem('Tags must be at most 120 characters / 标签最多120字。')
     con.execute('UPDATE elections SET tags=? WHERE id=?',(tags,eid))
+    # An explicit save selects the new publication policy; untouched legacy
+    # activities retain their previous manual-publication setting.
+    con.execute('UPDATE elections SET auto_publish=? WHERE id=?',(1 if visibility=='PUBLIC' else 0,eid))
     if invite:
         if not 4<=len(invite)<=64: raise Problem('Invitation code must be 4–64 characters / 邀请码须为4～64个字符。')
         from app import password_hash
