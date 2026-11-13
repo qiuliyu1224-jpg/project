@@ -1,5 +1,17 @@
 # VoteLab / COMP3500
 
+## 0.4.4 第三轮试用反馈 / Third-trial feedback
+
+新浏览器默认英文，保留已有语言偏好。顶栏支持切换账号，仅结束当前会话，不删除原账号资料。创建页和邀请码页有明确返回入口，模板采用正式名称。
+
+创建时可选择结束后自动公开结果或仅自己查看。旧活动保留原来的手动发布设置，编辑保存后才按新选择执行。多数决选需要第二轮时不提前发布最终结果。后台截止处理需要程序保持运行；重启后也会检查已过期活动。
+
+结果页默认显示票数／平均评分，按需生成柱状、横向柱状或折线图。评分轴固定0～5并显示人数；RCV可选择计票步骤。折线表示作品类别比较，不代表时间趋势，未评分或已淘汰项不会被补成零。
+
+英文页面的中文活动文本通过MyMemory在线翻译，只改变显示，原文、编辑框和选票不改写。提供缓存、短期签名请求、超时和明确失败状态。翻译可能不准确，匿名服务每天限5000字符；离线时仅已有缓存可用。身份信息、密码、手机号、邀请码及选票不送往翻译服务。参考文档与8项验收见 [VERSION_044](docs/VERSION_044.md)。
+
+New browsers default to English. Account switching preserves stored records. New PUBLIC events automatically publish at the end of the final voting round; private results remain creator-only, and legacy publication choices are preserved until explicitly edited. Result charts share the result page's access controls. Chinese activity text can be translated online by MyMemory for English display; originals and form values are unchanged. Network availability, translation quality and provider limits apply.
+
 第四版：根据组员试用反馈改进的Python + SQLite课程原型。支持单／多选、多数决选、RCV、0～5星评分，中英文界面、作品报名审核及轮次历史。AI辅助实现，组员需要理解、复核和继续开发。
 
 ## 启动
@@ -41,7 +53,7 @@ python app.py
 - 开票后创建者可暂停，最多成功保存3次修改，每次须公告。暂停期间不能投票，确认后恢复；修改记录可查。
 - 只改文字、标签或延长时间保留票；替换图片、增删作品或改变旧必评规则则开新轮，旧快照与旧票保留，不混入新结果。投票方式、最多可选数量仍锁定。
 - 创建者不能代写参赛者内容，但暂停时可移出名单并开新轮。已截止活动不能借此重新开放。
-- 公开结果须发布后可看；私密结果仅创建者可看。只显示汇总，不公开谁投给谁，但数据库内部有关联，不是密码学匿名。
+- 新建公开活动结束后自动发布；旧版活动按原手动发布设置处理。私密结果仅创建者可看。只显示汇总，不公开谁投给谁，但数据库内部有关联，不是密码学匿名。
 
 ## 验证及限制
 
