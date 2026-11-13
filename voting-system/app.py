@@ -42,6 +42,7 @@ def init_db():
                 con.execute("UPDATE users SET role='MANAGER' WHERE id IN (SELECT creator_id FROM elections)")
             for table, changes in {
                 'elections': [('planned_end','INTEGER'), ('submissions_open','INTEGER NOT NULL DEFAULT 0'),('allow_submissions','INTEGER NOT NULL DEFAULT 0'),
+                    ('auto_publish','INTEGER NOT NULL DEFAULT 0 CHECK(auto_publish IN (0,1))'),
                     ('voting_mode','TEXT'),('max_choices','INTEGER NOT NULL DEFAULT 1'),('score_optional','INTEGER NOT NULL DEFAULT 0'),
                     ('current_round','INTEGER NOT NULL DEFAULT 1'),('paused','INTEGER NOT NULL DEFAULT 0'),('revisions','INTEGER NOT NULL DEFAULT 0'),
                     ('announcement',"TEXT NOT NULL DEFAULT ''"),('tags',"TEXT NOT NULL DEFAULT ''"),('invite_salt',"TEXT NOT NULL DEFAULT ''"),('invite_hash',"TEXT NOT NULL DEFAULT ''")],
@@ -69,7 +70,8 @@ def init_db():
 
 
 def refresh(con):
-    con.execute("UPDATE elections SET status='CLOSED',paused=0 WHERE status='OPEN' AND ends_at<=?", (int(time.time()),))
+    from publication import refresh as refresh_publication
+    return refresh_publication(con)
 
 
 def password_hash(password, salt):
