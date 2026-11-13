@@ -44,13 +44,13 @@ SHA-256 $pillowHash
 License Lib/site-packages/pillow-12.3.0.dist-info/licenses/LICENSE
 "@ | Set-Content -LiteralPath (Join-Path $runtime.FullName 'RUNTIME-PROVENANCE.txt') -Encoding UTF8
 
-$appFiles = @('app.py', 'auth.py', 'demo_server.py', 'entries.py', 'lifecycle.py', 'maintenance.py', 'schema.sql', 'ui3.py', 'ui4.py', 'voting_rules.py', 'web3.py', 'web4.py', 'run_votelab.py')
+$appFiles = @('app.py', 'auth.py', 'demo_server.py', 'entries.py', 'lifecycle.py', 'maintenance.py', 'publication.py', 'charts.py', 'translation.py', 'schema.sql', 'ui3.py', 'ui4.py', 'voting_rules.py', 'web3.py', 'web4.py', 'run_votelab.py')
 foreach ($name in $appFiles) { Copy-Item -LiteralPath (Join-Path $source $name) -Destination $appDirectory.FullName }
 Copy-Item -LiteralPath (Join-Path $source 'static') -Destination $appDirectory.FullName -Recurse
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Start VoteLab.bat') -Destination $package.FullName
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'READ ME FIRST.txt') -Destination $package.FullName
 
-$archive = Join-Path $output 'VoteLab-0.4.3-Windows-x64.zip'
+$archive = Join-Path $output 'VoteLab-0.4.4-Windows-x64.zip'
 Compress-Archive -Path (Join-Path $package.FullName '*') -DestinationPath $archive -CompressionLevel Optimal
 $extracted = Join-Path $work 'Extracted VoteLab'
 Expand-Archive -LiteralPath $archive -DestinationPath $extracted
