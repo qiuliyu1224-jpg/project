@@ -15,7 +15,7 @@ def start_maintenance(interval=5):
                     with con: app.refresh(con)
                 finally: con.close()
             except sqlite3.Error:
-                logging.exception('Deadline refresh failed; will retry')
+                logging.exception('Deadline/result publication refresh failed; will retry')
     worker=threading.Thread(target=run,daemon=True,name='votelab-deadlines')
     worker.start()
     return stop,worker
