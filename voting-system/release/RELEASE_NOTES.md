@@ -1,3 +1,25 @@
+# VoteLab 0.4.4 - Third trial feedback
+
+本版落实8项试用反馈：最终轮次结束后按公开/仅自己设置自动处理结果；新增柱状、横向柱状和折线统计图；新浏览器默认英文；邀请码页和创建页有返回入口；可切换账号；英文显示通过在线服务翻译中文活动内容；多数决选隐藏数量框；活动模板采用正式文案。
+
+- 不重建或清空数据库。继续读取原用户数据目录，启动前保留SQLite备份。旧活动不擅自改成自动公开；创建者编辑并保存后使用新设置。
+- 统计图读取同一份计票结果，不能绕过邀请码、结果发布和私密权限。评分仍为0-5平均分，未评分不当0分，显示人数；RCV可查看具体计票步骤，已淘汰项不伪装成零票。
+- 多数决选第一轮需要决选时不提前发布最终结果；平票、无票均显示明确状态，不擅自选赢家。
+- 在线翻译只改变显示，不改原文、编辑框或选票；有缓存、超时、限额和英文失败提示。MyMemory为外部服务，可能译错或不可用，匿名每日5000字符。账号身份、密码、手机号、邀请码、图片和选票不提交翻译。
+- 切换账号仅撤销当前会话，旧账号数据及其他设备会话保留。多数决选后台继续限制每轮一项。
+
+Addresses all eight trial items: automatic final-result publication or creator-only access, selectable charts, English default, return links, account switching, online English display translations, method-specific limits and formal template wording.
+
+Existing data storage and startup backups are preserved. New PUBLIC events opt into automatic publication; untouched legacy settings remain manual. A majority round requiring a runoff is not published as the final result. Private and invitation-gated charts use the same permissions as the result table. Chart selection never changes votes.
+
+Chinese visible activity text is translated through MyMemory (online, bounded timeouts, local cache, 5000-character daily anonymous allowance). Original records and editor fields remain intact. Source text is sent to an external service; use fictional non-sensitive activity content. Failure is labelled, with optional original-text viewing. No real SMS or permanent shared hosting is introduced.
+
+Validation: regression tests plus isolated headless-browser checks for the eight changes, chart rendering, account switching, mobile layout and a synthetic live translation. Platform builds and package-restart persistence checks must pass before publication.
+
+Reference: [MyMemory API](https://mymemory.translated.net/doc/spec.php), [usage limits](https://mymemory.translated.net/doc/usagelimits.php).
+
+## Previous release notes
+
 # VoteLab 0.4.3
 
 修复多数决选仍显示“每人最多选几项”的问题。数量设置现在仅适用于单／多选。多数决选明确说明每人每轮选1个作品，第一轮无人过半时由前两名进入第二轮重新投票。评分和RCV也会隐藏无关的数量设置。旧活动和选票可继续使用。
