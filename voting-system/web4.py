@@ -12,6 +12,8 @@ import app as core
 import entries
 import lifecycle
 import voting_rules as rules
+import translation
+import charts
 from app import Problem, e, scalar
 from auth import issue_code, consume_code
 from ui4 import View
@@ -19,7 +21,7 @@ from ui4 import View
 
 def dispatch(env,start):
     path=env.get('PATH_INFO','/')
-    if path in ('/static/style.css','/static/entries.css','/static/app.js','/static/v4.js'):
+    if path in ('/static/style.css','/static/entries.css','/static/app.js','/static/v4.js','/static/translation.js'):
         data=(core.ROOT/path.lstrip('/')).read_bytes()
         start('200 OK',[('Content-Type',('text/css' if path.endswith('.css') else 'application/javascript')+'; charset=utf-8'),('Cache-Control','no-cache')]); return [data]
     cookies=SimpleCookie()
@@ -28,14 +30,16 @@ def dispatch(env,start):
     token=cookies['session'].value if 'session' in cookies else ''
     browser=cookies['browser'].value if 'browser' in cookies else ''
     if not re.fullmatch('[a-f0-9]{48}',browser): browser=secrets.token_hex(24)
-    lang=cookies['lang'].value if 'lang' in cookies else 'zh'
-    if lang not in ('zh','en'): lang='zh'
+    lang=cookies['lang'].value if 'lang' in cookies else 'en'
+    if lang not in ('zh','en'): lang='en'
     csrf=hmac.new(core.CSRF_KEY,(browser+'|'+token).encode(),'sha256').hexdigest()
     headers=[('Content-Type','text/html; charset=utf-8'),('Cache-Control','no-store'),('X-Content-Type-Options','nosniff'),('Referrer-Policy','same-origin'),('Content-Security-Policy',"default-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; form-action 'self'; frame-ancestors 'none'"),('Set-Cookie',f'browser={browser}; HttpOnly; SameSite=Lax; Path=/')]
     con=core.connect(); user=None; form={}; event=None
     view=View(lang,csrf,user,path); t=view.t; hidden=view.hidden; link=view.link; button=view.button
     def response(body,status=200):
         phrase={200:'OK',303:'See Other',400:'Bad Request',401:'Unauthorized',403:'Forbidden',404:'Not Found',409:'Conflict',413:'Content Too Large',429:'Too Many Requests',500:'Internal Server Error'}
+        if lang=='en' and headers[0][1].startswith('text/html') and body:
+            body=translation.mark_page(body,lang,csrf,core.CSRF_KEY)
         start(f'{status} {phrase.get(status,"Error")}',headers); return [body.encode('utf-8')]
     def json_response(data,status=200):
         headers[0]=('Content-Type','application/json; charset=utf-8')
@@ -101,6 +105,11 @@ def dispatch(env,start):
                 if language not in ('zh','en'): raise Problem('Unsupported language / 不支持该语言。')
                 if not re.fullmatch(r'/[a-zA-Z0-9/_-]*',target): target='/'
                 headers.append(('Set-Cookie',f'lang={language}; SameSite=Lax; Path=/; Max-Age=31536000')); return redirect(target)
+            if path=='/translate':
+                try: source=translation.verify_token(scalar(form,'token'),csrf,core.CSRF_KEY)
+                except ValueError:
+                    return json_response({'ok':False,'text':'Translation request expired. Reload the page.'},403)
+                return json_response(translation.translate(con,source))
             if path=='/auth/code':
                 phone=phone_number(); purpose=scalar(form,'purpose')
                 row=con.execute('SELECT * FROM users WHERE phone=?',(phone,)).fetchone()
@@ -137,7 +146,7 @@ def dispatch(env,start):
                     newtoken=secrets.token_hex(32); con.execute('INSERT INTO sessions VALUES(?,?,?)',(newtoken,uid,int(time.time())+7200))
                 headers.append(('Set-Cookie',f'session={newtoken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=7200')); return redirect('/')
             require()
-            if path=='/logout':
+            if path in ('/logout','/switch-account'):
                 with con: con.execute('DELETE FROM sessions WHERE token=?',(token,))
                 headers.append(('Set-Cookie','session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')); return redirect('/login')
             if path=='/create':
@@ -192,8 +201,10 @@ def dispatch(env,start):
                 elif action=='close':
                     if event['status']!='OPEN': raise Problem('Voting is already closed / 投票已关闭。',409)
                     con.execute("UPDATE elections SET status='CLOSED',paused=0 WHERE id=?",(eid,))
+                    core.refresh(con)
                 elif action=='publish':
                     if event['status']!='CLOSED': raise Problem('Close voting first / 请先结束投票。',409)
+                    if event['visibility']=='PRIVATE': raise Problem('Private results are already available to the creator only / 私密结果已可由创建者查看，无需公开发布。')
                     if event['method']=='MAJORITY' and rules.counts(con,event)['state']=='RUNOFF_REQUIRED': raise Problem('Complete the runoff before publishing final results / 需要完成第二轮决选后才能发布最终结果。',409)
                     con.execute('UPDATE elections SET published=1 WHERE id=?',(eid,))
                 elif action=='pause':
@@ -254,7 +265,7 @@ def dispatch(env,start):
         if event['status']=='DRAFT' and not event['submissions_open'] and not owner(event): raise Problem('Draft not public / 草稿尚未公开。',403)
         if not access(event):
             require()
-            body=view.head(t('此活动需要邀请码','Invitation required'),e(event['title']))+f'<form class="panel narrow" method="post" action="/e/{eid}/access">{hidden()}<label class="field">{t("请输入发起者提供的邀请码","Enter the code supplied by the organiser")}<input name="invite_code" required maxlength="64" autocomplete="off"></label><button class="btn">{t("进入活动","Enter event")}</button></form>'
+            body=view.head(t('此活动需要邀请码','Invitation required'),e(event['title']),link('/',t('返回活动广场','Back to explore')))+f'<form class="panel narrow" method="post" action="/e/{eid}/access">{hidden()}<label class="field">{t("请输入发起者提供的邀请码","Enter the code supplied by the organiser")}<input name="invite_code" required maxlength="64" autocomplete="off"></label><button class="btn">{t("进入活动","Enter event")}</button></form>'
             return response(view.page(t('输入邀请码','Enter invitation code'),body))
         if suffix=='/status':
             start('200 OK',[('Content-Type','application/json'),('Cache-Control','no-store')]); return [json.dumps({'status':event['status'],'paused':event['paused'],'round':event['current_round'],'ends_at':event['ends_at']}).encode()]
@@ -314,7 +325,23 @@ def dispatch(env,start):
                     previous=value
                     display=t('未评分','Not rated') if value is None else f'{value:.2f} / 5' if result['method']=='SCORE' else str(value)
                     detail=f'{row["n"]} '+t('人评分','ratings') if result['method']=='SCORE' else ''
-                    body+=f'<div class="summary-row"><span>{rank}. {e(row["name"])}</span><strong>{display}<small> {detail}</small></strong></div>'
+                    body+=f'<div class="summary-row"><span>{rank}. <span>{e(row["name"])}</span></span><strong>{display}<small> {detail}</small></strong></div>'
+            body+='</section>'
+            chart_kind=scalar(query,'chart')
+            chart_options=[('bar',t('柱状图','Column chart')),('horizontal',t('横向柱状图','Horizontal bar chart')),('line',t('折线图（作品对比）','Line chart (entry comparison)'))]
+            if chart_kind and chart_kind not in dict(chart_options):
+                raise Problem('Unsupported chart type / 不支持该统计图类型。')
+            count_step=None
+            count_select=''
+            if result['method']=='RCV' and result['rounds']:
+                try: count_step=int(scalar(query,'count',str(len(result['rounds']))))
+                except ValueError: raise Problem('Invalid counting step / 计票步骤无效。')
+                if not 1<=count_step<=len(result['rounds']): raise Problem('Invalid counting step / 计票步骤无效。')
+                count_select=f'<label class="field">{t("RCV 计票步骤","RCV counting step")}<select name="count">'+''.join(f'<option value="{i}" {"selected" if i==count_step else ""}>{i}</option>' for i in range(1,len(result['rounds'])+1))+'</select></label>'
+            body+=f'<section class="panel"><h2>{t("统计图","Result charts")}</h2><form method="get" action="/e/{eid}/results"><input type="hidden" name="round" value="{number}"><label class="field">{t("统计图类型","Chart type")}<select name="chart">'+''.join(f'<option value="{key}" {"selected" if key==(chart_kind or "bar") else ""}>{label}</option>' for key,label in chart_options)+f'</select></label>{count_select}<button class="btn">{t("生成统计图","Generate statistics chart")}</button></form>'
+            if chart_kind:
+                try: body+=charts.render_chart(result,kind=chart_kind,lang=lang,rcv_round=count_step)
+                except ValueError: raise Problem('Invalid chart settings / 统计图设置无效。')
             body+='</section>'
             if owner(event) and number==event['current_round'] and result['state']=='RUNOFF_REQUIRED':
                 deadline=datetime.fromtimestamp(time.time()+86400,entries.TZ).strftime('%Y-%m-%dT%H:%M')
@@ -358,7 +385,7 @@ def dispatch(env,start):
                     body+=link(f'/e/{eid}/revision',t('编辑暂停中的活动','Edit paused event'))+button(f'/e/{eid}/resume',t('确认修改并恢复投票','Confirm and resume'))
                 elif event['revisions']<3: body+=button(f'/e/{eid}/pause',t(f'暂停并修改（剩余{3-event["revisions"]}次）',f'Pause and edit ({3-event["revisions"]} left)'),confirm=t('暂停期间所有人都不能投票；修改须公告。','Voting stops for everyone while paused. Changes require an announcement.'))
                 body+=button(f'/e/{eid}/close',t('关闭投票','Close voting'),'danger',t('确认关闭投票？','Close voting?'))
-            if event['status']=='CLOSED' and not event['published']: body+=button(f'/e/{eid}/publish',t('发布结果','Publish results'))
+            if event['status']=='CLOSED' and not event['published'] and event['visibility']=='PUBLIC': body+=button(f'/e/{eid}/publish',t('发布结果','Publish results'))
         if can_result: body+=link(f'/e/{eid}/results',t('查看结果／历史轮次','View results / round history'),'')
         elif event['status']=='CLOSED': body+=f'<p>{t("等待发布结果，或结果仅创建者可见。","Awaiting publication, or results are private.")}</p>'
         body+='</div></aside></div>'
