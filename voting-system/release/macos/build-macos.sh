@@ -61,7 +61,7 @@ package_dir="$work_dir/$package_name"
 archive="$work_dir/$package_name.zip"
 mkdir -p "$package_dir"
 ditto "$work_dir/dist/VoteLab.app" "$package_dir/VoteLab.app"
-cp "$script_dir/�ȶ���.txt" "$package_dir/�ȶ���.txt"
+cp "$script_dir/先读我.txt" "$package_dir/先读我.txt"
 if [[ -f "$source_dir/release/READ ME FIRST.txt" ]]; then
     cp "$source_dir/release/READ ME FIRST.txt" "$package_dir/READ ME FIRST.txt"
 fi
