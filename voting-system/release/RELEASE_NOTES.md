@@ -7,10 +7,13 @@
 - 旧版 0.4.4 没有新版实例身份接口。升级前应先退出已知旧 VoteLab。无法确认身份的端口占用会明确报错，不自动换端口或停止其他程序，且在数据库备份和迁移之前停止。
 - 启动日志始终写入原用户数据目录的 launcher.log，记录可进入 Python 阶段的启动错误；Mac 打包程序同时显示启动失败说明。Python 运行前的系统拦截或加载失败仍可能早于日志创建。
 - Windows 使用独占端口绑定，避免复用已被其他 HTTP 程序占用的地址。原有 SQLite 数据位置、升级前备份和投票功能继续保留。
+- 本地服务启动使用数字地址，去掉不必要的反向 DNS 查询，避免主机名解析迟缓拖住 Mac 启动。
 
 This release addresses the confirmed Mac error when opening VoteLab again while its local server is already running. A per-data-directory OS lock prevents a second new launcher from initializing the same database. Authenticated local instance discovery reopens the existing page. Unknown port occupants and legacy instances without the new identity endpoint produce clear guidance before database backup or migration. There is no automatic port switch or process termination.
 
 Startup logging is independent of console availability. The packaged Mac app displays Python-stage startup failures. Windows uses exclusive port binding. Existing user data paths and SQLite startup backups are retained. Closing a browser tab still does not stop the app.
+
+Local startup uses the bound numeric address directly, avoiding a reverse-DNS lookup that can stall when a resolver is unavailable or slow.
 
 Validation required before publication: the full regression suite, process-level duplicate-launch/occupied-port/restart tests on native platforms, and duplicate-launch plus persistence checks using the actual extracted archives. Build checks run on macOS 15 for Apple Silicon and Intel; these do not claim a Finder GUI test, native macOS 14.5 validation, Apple notarization or production certification.
 

@@ -13,6 +13,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import ProxyHandler, Request, build_opener
 
@@ -41,7 +42,9 @@ def foreign_server(legacy=False):
         def log_message(self, *args):
             pass
 
-    server = HTTPServer(('127.0.0.1', 0), ForeignHandler)
+    # This synthetic server tests occupied-port handling, never DNS behavior.
+    with patch('socket.getfqdn', return_value='127.0.0.1'):
+        server = HTTPServer(('127.0.0.1', 0), ForeignHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -265,7 +268,8 @@ runpy.run_path(str(Path(sys.path[0]) / 'run_votelab.py'), run_name='__main__')
             def log_message(self, *args):
                 pass
 
-        target = HTTPServer(('127.0.0.1', 0), RedirectTarget)
+        with patch('socket.getfqdn', return_value='127.0.0.1'):
+            target = HTTPServer(('127.0.0.1', 0), RedirectTarget)
 
         class RedirectSource(BaseHTTPRequestHandler):
             def do_GET(self):
@@ -277,7 +281,8 @@ runpy.run_path(str(Path(sys.path[0]) / 'run_votelab.py'), run_name='__main__')
             def log_message(self, *args):
                 pass
 
-        source = HTTPServer(('127.0.0.1', 0), RedirectSource)
+        with patch('socket.getfqdn', return_value='127.0.0.1'):
+            source = HTTPServer(('127.0.0.1', 0), RedirectSource)
         threads = [threading.Thread(target=server.serve_forever, daemon=True)
                    for server in (source, target)]
         for thread in threads:

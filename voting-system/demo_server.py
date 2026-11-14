@@ -1,7 +1,7 @@
 """Concurrent server for small classroom demos, not production hosting."""
 import socket
 import sys
-from socketserver import ThreadingMixIn
+from socketserver import TCPServer, ThreadingMixIn
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
 
@@ -13,7 +13,11 @@ class DemoServer(ThreadingMixIn, WSGIServer):
     def server_bind(self):
         if sys.platform == 'win32':
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
-        super().server_bind()
+        # This is a local demo server. Reverse DNS is unnecessary and can stall
+        # startup when a Mac resolver or its current network is unresponsive.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+        self.setup_environ()
 
 
 class DemoHandler(WSGIRequestHandler):
