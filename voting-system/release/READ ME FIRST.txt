@@ -1,38 +1,70 @@
-VoteLab 0.4.4 — 小组试用版 / Team test release
+VoteLab 0.4.5 �� С�����ð� / Team test release
 
-Windows x64 请完整解压 ZIP，再双击 Start VoteLab.bat。
-Mac 请按芯片选择 Apple Silicon 或 Intel，解压后打开 VoteLab.app。
-运行环境已包含在包内。浏览器会打开 http://127.0.0.1:8765/。
-Mac 发布构建的原生验证环境为 macOS 15。
+�����޸��ظ�����ʱ���������򲻿��������
 
-1. 选择国家／地区，使用虚构手机号注册测试账号。
-   称呼最多60个字符。密码为8～128个字符，注册和重置时两次输入须一致。
-   密码未设置必须同时包含字母和数字的规则。
-   “显示密码”可自行勾选，默认隐藏。
-2. 点击“获取验证码”后在当前页面查看演示码，再填入验证码框。
-   获取过程保留已输入的国家、称呼和密码。演示码在页面显示，未发送短信。
-3. 创建活动，添加至少两个作品，预览后开始投票。
-   用另一个浏览器或无痕窗口登录第二个账号，试用投票，再核对结果。
-   首页标注的演示图用于展示样式。活动和结果列表读取实际保存的数据。
+����ɰ����ں�̨���У�������������� http://127.0.0.1:8765/ ����ʹ�á�
+�ر������ҳ�治��ֹͣ VoteLab���ɳ���������ʱ���ٴ������ɰ������ʾ�˿���ռ�á�
+����ǰ���˳��ɰ棺Mac �ڡ�������������ҵ���֪�� VoteLab ���̲�ֹͣ��
+Windows ��ԭ VoteLab ���ڰ� Ctrl+C �˳�������ԭ�� voting.sqlite3 �� backups �ļ��С�
 
-多人参与同一场活动时，请大家使用组织者提供的同一在线网址。
-本地包在每台电脑上分别保存资料。127.0.0.1 访问的是当前这台电脑。
-在同一台电脑上测试多个角色，可使用不同浏览器或无痕窗口分别登录。
+0.4.5 ʹ��ͬһ�û�����Ŀ¼������ 0.4.5 ʵ����������ʱ���ٴ�˫�������������ҳ�棬
+��������һ�����������ٴ�Ǩ�����ݿ����������������ݡ�
+��ռ�ö˿ڵ����޷�ȷ�����ݵľɰ���������򣬻���ʾ��ȷ���󣻲����Զ�ֹͣ��������
+Ҳ�����Զ����˿������ڶ������������Ⱥ˶� http://127.0.0.1:8765/ ����ʾ�����ݡ�
 
-账号、活动、图片和选票保存在用户数据目录，更新应用后继续读取原路径。
+������Ϣ�� Python �׶ε����������д������Ŀ¼�е� launcher.log��
+Mac �������������������ʱҲ����ʾ��ʾ������������ Python ����ǰ����־������δ���ɡ�
+�������а��������԰����Էֱ𱣴棻����û�������ƶ˹����� Apple Developer ID ǩ���빫֤��
+
+Version 0.4.5 fixes confusing repeated-launch behavior. If an earlier VoteLab is
+already serving, use http://127.0.0.1:8765/ in your browser. Closing the browser
+does not stop the local server. Before updating, quit the known old VoteLab
+process in Activity Monitor on Mac, or press Ctrl+C in its Windows console.
+Keep the existing database and backups.
+
+Opening an already running 0.4.5 instance reopens its current page without a
+second server, migration or startup backup. An unverified or unrelated occupant
+of the requested port produces an actionable error. VoteLab does not kill that
+process or silently switch ports. Startup information and Python-stage failures
+are recorded in launcher.log in the same user data directory. The packaged Mac
+app also displays startup-error guidance. Failures before Python starts can still
+occur before the log exists. Local installations still keep separate data.
+
+ͨ��ʹ��˵�� / General operating instructions
+
+Windows x64 ��������ѹ ZIP����˫�� Start VoteLab.bat��
+Mac �밴оƬѡ�� Apple Silicon �� Intel����ѹ��� VoteLab.app��
+���л����Ѱ����ڰ��ڡ��������� http://127.0.0.1:8765/��
+Mac ����������ԭ����֤����Ϊ macOS 15��
+
+1. ѡ����ң�������ʹ���鹹�ֻ���ע������˺š�
+   �ƺ����60���ַ�������Ϊ8��128���ַ���ע�������ʱ����������һ�¡�
+   ����δ���ñ���ͬʱ������ĸ�����ֵĹ���
+   ����ʾ���롱�����й�ѡ��Ĭ�����ء�
+2. �������ȡ��֤�롱���ڵ�ǰҳ��鿴��ʾ�룬��������֤���
+   ��ȡ���̱���������Ĺ��ҡ��ƺ������롣��ʾ����ҳ����ʾ��δ���Ͷ��š�
+3. ���������������������Ʒ��Ԥ����ʼͶƱ��
+   ����һ����������޺۴��ڵ�¼�ڶ����˺ţ�����ͶƱ���ٺ˶Խ����
+   ��ҳ��ע����ʾͼ����չʾ��ʽ����ͽ���б���ȡʵ�ʱ�������ݡ�
+
+���˲���ͬһ���ʱ������ʹ����֯���ṩ��ͬһ������ַ��
+���ذ���ÿ̨�����Ϸֱ𱣴����ϡ�127.0.0.1 ���ʵ��ǵ�ǰ��̨���ԡ�
+��ͬһ̨�����ϲ��Զ����ɫ����ʹ�ò�ͬ��������޺۴��ڷֱ��¼��
+
+�˺š����ͼƬ��ѡƱ�������û�����Ŀ¼������Ӧ�ú������ȡԭ·����
 Windows  %LOCALAPPDATA%\VoteLab\voting.sqlite3
 macOS    ~/Library/Application Support/VoteLab/voting.sqlite3
-已有数据库启动前会生成 SQLite 快照，位于同一目录的 backups 文件夹。
-快照通过 SQLite 完整性检查后保存。另存整个 VoteLab 数据文件夹可用于恢复或换机。
-更新前先结束旧版本程序，再解压并打开新版本。
+�������ݿ�����ǰ������ SQLite ���գ�λ��ͬһĿ¼�� backups �ļ��С�
+����ͨ�� SQLite �����Լ��󱣴档�������� VoteLab �����ļ��п����ڻָ��򻻻���
+����ǰ�Ƚ����ɰ汾�����ٽ�ѹ�����°汾��
 
-使用时请让 VoteLab 保持运行。Windows 可在 VoteLab 窗口按 Ctrl+C 结束。
-Mac 可在“活动监视器”中选择 VoteLab 并停止进程。
-页面未自动打开时，可手动打开 http://127.0.0.1:8765/。
-提示端口被占用时，请先结束已经运行的 VoteLab，再重新打开。
+ʹ��ʱ���� VoteLab �������С�Windows ���� VoteLab ���ڰ� Ctrl+C ������
+Mac ���ڡ������������ѡ�� VoteLab ��ֹͣ���̡�
+ҳ��δ�Զ���ʱ�����ֶ��� http://127.0.0.1:8765/��
+��ʾ�˿ڱ�ռ��ʱ�����Ƚ����Ѿ����е� VoteLab�������´򿪡�
 
-Mac 包尚未经过 Apple 开发者身份签名和公证。首次打开若受到 Gatekeeper 提示，
-确认下载来源后，可按 Apple 的“系统设置 → 隐私与安全性”指引操作。
+Mac ����δ���� Apple ����������ǩ���͹�֤���״δ����ܵ� Gatekeeper ��ʾ��
+ȷ��������Դ�󣬿ɰ� Apple �ġ�ϵͳ���� �� ��˽�밲ȫ�ԡ�ָ��������
 https://support.apple.com/102445
 
 Windows x64 users should extract the full ZIP and open Start VoteLab.bat.
@@ -41,7 +73,7 @@ The runtime is included. VoteLab opens at http://127.0.0.1:8765/ in your browser
 Native Mac release checks run on macOS 15.
 
 Register with a fictional phone account and the matching country code.
-Display names allow up to 60 characters. Passwords allow 8–128 characters.
+Display names allow up to 60 characters. Passwords allow 8�C128 characters.
 Registration and reset require two identical entries. There is no letter-and-digit
 composition requirement. Show password is optional and starts unchecked.
 Get code displays a demo code on the current page while retaining your form entries.
@@ -64,11 +96,11 @@ download, follow Apple's first-run guidance if Gatekeeper requests confirmation.
 https://support.apple.com/102445
 
 
-0.4.4：新浏览器默认英文；已有语言偏好会保留。可在顶栏切换账号，不删除旧账号的数据。
-新建公开活动在最终轮次结束后自动发布；仅自己查看不公开。旧活动保留原手动发布设置，编辑保存后按新选项执行。
-结果页默认显示票数或平均评分，点击生成统计图可选择柱状、横向柱状或折线图。折线连接作品类别，不代表时间趋势。
-英文页面的活动名称、作品名及介绍通过 MyMemory 在线翻译，原文和表单编辑内容不改写。翻译需联网，第三方可能译错或限流；失败时显示英文状态并可主动查看原文。
-MyMemory 匿名额度为每日5000字符，结果缓存在本机；不会发送密码、手机号、邀请码或选票。不要在活动介绍中填写敏感资料。
+0.4.4���������Ĭ��Ӣ�ģ���������ƫ�ûᱣ�������ڶ����л��˺ţ���ɾ�����˺ŵ����ݡ�
+�½�������������ִν������Զ����������Լ��鿴���������ɻ����ԭ�ֶ��������ã��༭�������ѡ��ִ�С�
+���ҳĬ����ʾƱ����ƽ�����֣��������ͳ��ͼ��ѡ����״��������״������ͼ������������Ʒ��𣬲�����ʱ�����ơ�
+Ӣ��ҳ��Ļ���ơ���Ʒ��������ͨ�� MyMemory ���߷��룬ԭ�ĺͱ����༭���ݲ���д�����������������������������������ʧ��ʱ��ʾӢ��״̬���������鿴ԭ�ġ�
+MyMemory �������Ϊÿ��5000�ַ�����������ڱ��������ᷢ�����롢�ֻ��š��������ѡƱ����Ҫ�ڻ��������д�������ϡ�
 
 0.4.4: English is the default for a new browser; saved language preferences are respected. Switch account ends only the current session and keeps stored records.
 New public events publish at the end of the final voting round; private results stay creator-only. Untouched legacy events retain manual publication until explicitly saved with the new policy.
@@ -76,3 +108,4 @@ Results show counts or average ratings first; Generate statistics chart offers c
 Chinese activity text is machine-translated online by MyMemory for English display. Original records and editor fields remain unchanged. Network access and provider availability are required; translations may be wrong or unavailable.
 The anonymous provider allowance is 5000 characters per day. Successful translations are cached locally. Passwords, phone accounts, invitation codes and ballots are not sent. Do not enter sensitive information in activity descriptions.
 Provider documentation: https://mymemory.translated.net/doc/spec.php and https://mymemory.translated.net/doc/usagelimits.php
+

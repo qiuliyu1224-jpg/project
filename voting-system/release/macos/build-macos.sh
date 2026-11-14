@@ -61,7 +61,7 @@ package_dir="$work_dir/$package_name"
 archive="$work_dir/$package_name.zip"
 mkdir -p "$package_dir"
 ditto "$work_dir/dist/VoteLab.app" "$package_dir/VoteLab.app"
-cp "$script_dir/先读我.txt" "$package_dir/先读我.txt"
+cp "$script_dir/�ȶ���.txt" "$package_dir/�ȶ���.txt"
 if [[ -f "$source_dir/release/READ ME FIRST.txt" ]]; then
     cp "$source_dir/release/READ ME FIRST.txt" "$package_dir/READ ME FIRST.txt"
 fi
@@ -116,6 +116,12 @@ PY
 
 persistence_test="$source_dir/tools/http_persistence_smoke.py"
 "$py" "$persistence_test" before "$base_url" "$work_dir/fixture.json"
+# Exercise the actual frozen launcher twice, without touching the source tree.
+before_hash=$(shasum -a 256 "$work_dir/data/voting.sqlite3")
+reused=$(VOTELAB_DATA_DIR="$work_dir/data" "$binary" --no-browser --port "$port")
+printf '%s\n' "$reused" | grep -F "VoteLab is already running at $base_url/"
+test "$before_hash" = "$(shasum -a 256 "$work_dir/data/voting.sqlite3")"
+test -s "$work_dir/data/launcher.log"
 stop_server
 start_server after
 "$py" "$persistence_test" after "$base_url" "$work_dir/fixture.json"
@@ -124,3 +130,4 @@ stop_server
 
 cp "$archive" "$output_dir/$package_name.zip"
 shasum -a 256 "$output_dir/$package_name.zip"
+

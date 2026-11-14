@@ -50,7 +50,7 @@ Copy-Item -LiteralPath (Join-Path $source 'static') -Destination $appDirectory.F
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Start VoteLab.bat') -Destination $package.FullName
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'READ ME FIRST.txt') -Destination $package.FullName
 
-$archive = Join-Path $output 'VoteLab-0.4.4-Windows-x64.zip'
+$archive = Join-Path $output 'VoteLab-0.4.5-Windows-x64.zip'
 Compress-Archive -Path (Join-Path $package.FullName '*') -DestinationPath $archive -CompressionLevel Optimal
 $extracted = Join-Path $work 'Extracted VoteLab'
 Expand-Archive -LiteralPath $archive -DestinationPath $extracted
@@ -76,9 +76,24 @@ foreach ($phase in @('before', 'after')) {
         if (!$address) { throw "VoteLab failed to start. $(Get-Content -LiteralPath $stderr -Raw)" }
         & $python -B $smoke $phase $address $fixture
         if ($LASTEXITCODE -ne 0) { throw "Windows archive failed the $phase persistence check." }
+        if ($phase -eq 'before') {
+            $databasePath = Join-Path $env:VOTELAB_DATA_DIR 'voting.sqlite3'
+            $databaseHash = (Get-FileHash -LiteralPath $databasePath -Algorithm SHA256).Hash
+            $duplicateOutput = (& $python -B $launcher --no-browser --port 0 2>&1 | Out-String)
+            if ($LASTEXITCODE -ne 0 -or !$duplicateOutput.Contains("VoteLab is already running at $address/")) {
+                throw "The packaged launcher did not reopen the existing instance: $duplicateOutput"
+            }
+            if ((Get-FileHash -LiteralPath $databasePath -Algorithm SHA256).Hash -ne $databaseHash) {
+                throw 'A repeated packaged launch changed the database.'
+            }
+            if (!(Test-Path -LiteralPath (Join-Path $env:VOTELAB_DATA_DIR 'launcher.log'))) {
+                throw 'The packaged launcher did not create its startup log.'
+            }
+        }
     } finally {
         if (!$server.HasExited) { Stop-Process -Id $server.Id }
         $server.WaitForExit()
     }
 }
 Get-FileHash -LiteralPath $archive -Algorithm SHA256
+
