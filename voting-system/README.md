@@ -1,5 +1,11 @@
 # VoteLab / COMP3500
 
+## 0.4.6 英文启动入口 / English desktop entry
+
+双击首次启动或重复打开程序时，会明确进入英文首页，解决旧版 `lang=zh` 偏好导致仍显示中文的问题。进入后仍可在顶栏切换中文，普通页面导航保留当前选择。侧栏显示完整版本号。账号、活动、图片和选票不清除；旧数据目录及启动备份机制保持不变。启动器不再将旧版本实例误当作新版：升级前请退出已知旧 VoteLab，再打开新版。
+
+Desktop launches explicitly open English even when the browser retains an earlier Chinese preference. You can still choose Chinese afterward. The sidebar shows the exact version. Older running versions are not silently reused. See [VERSION_046](docs/VERSION_046.md) for the eight-item acceptance checklist and limits.
+
 ## 0.4.5 重复启动处理 / Repeated-launch recovery
 
 组员的 Mac 报错已确认是旧服务占用默认 8765 端口；浏览器打开 http://127.0.0.1:8765/ 可继续使用。关闭网页不会停止服务。更新前应先在活动监视器退出已知旧 VoteLab，保留原数据库和备份。
