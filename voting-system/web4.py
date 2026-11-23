@@ -22,7 +22,10 @@ from ui4 import View
 
 def dispatch(env,start):
     path=env.get('PATH_INFO','/')
-    if path in ('/static/style.css','/static/entries.css','/static/app.js','/static/v4.js','/static/translation.js','/static/exports.js'):
+    if path in ('/static/assets/hero-vote.webp','/static/assets/login-vote.webp','/static/assets/example-entries.webp','/static/assets/example-choice.webp','/static/assets/example-projects.webp'):
+        data=(core.ROOT/path.lstrip('/')).read_bytes()
+        start('200 OK',[('Content-Type','image/webp'),('Cache-Control','no-cache'),('X-Content-Type-Options','nosniff')]); return [data]
+    if path in ('/static/style.css','/static/entries.css','/static/refined.css','/static/app.js','/static/v4.js','/static/translation.js','/static/exports.js','/static/experience.js'):
         data=(core.ROOT/path.lstrip('/')).read_bytes()
         start('200 OK',[('Content-Type',('text/css' if path.endswith('.css') else 'application/javascript')+'; charset=utf-8'),('Cache-Control','no-cache')]); return [data]
     cookies=SimpleCookie()
@@ -185,7 +188,7 @@ def dispatch(env,start):
                 for cid,value in selections:
                     key='candidate' if event['method'] in ('SINGLE','MAJORITY') else ('rank_' if event['method']=='RCV' else 'score_')+str(cid)
                     fields+=f'<input type="hidden" name="{key}" value="{cid if key=="candidate" else value}">'
-                body=view.head(t('确认你的选择','Review your ballot'),t('尚未保存。请核对后确认提交。','Not saved yet. Check your choices, then confirm.'))+f'<section class="panel narrow"><h2>{e(event["title"])}</h2>{summary}<form method="post" action="/e/{eid}/vote">{hidden()}{fields}<div class="button-row"><button class="btn">{t("确认提交","Confirm and submit")}</button>{link(f"/e/{eid}",t("返回重选","Choose again"))}</div></form></section>'
+                body=view.head(t('确认你的选择','Review your ballot'),t('尚未保存。请核对后确认提交。','Not saved yet. Check your choices, then confirm.'))+f'<section class="panel narrow"><h2>{e(event["title"])}</h2>{summary}<form method="post" action="/e/{eid}/vote" data-final-ballot data-round-number="{event["current_round"]}">{hidden()}{fields}<div class="button-row"><button class="btn">{t("确认提交","Confirm and submit")}</button>{link(f"/e/{eid}",t("返回重选","Choose again"))}</div><p class="helper" data-submit-status role="status" aria-live="polite"></p></form></section>'
                 return response(view.page(t('核对选票','Review ballot'),body))
             if action=='apply':
                 with con:
@@ -393,7 +396,7 @@ def dispatch(env,start):
             else:
                 choices=con.execute('SELECT candidate_id,score FROM choices WHERE ballot_id=?',(own['id'],)).fetchall()
                 saved={'candidate':[str(c['candidate_id']) for c in choices]} if event['method'] in ('SINGLE','MAJORITY') else {'score_'+str(c['candidate_id']):str(c['score']) for c in choices}
-        body+=f'<div class="detail-layout"><section><form method="post" action="/e/{eid}/confirm" data-ballot data-limit="{event["max_choices"]}" data-method="{event["method"]}">{hidden()}<input type="hidden" name="round_id" value="{rnd["id"]}">{view.cards(event,candidates,can_vote,saved)}'
+        body+=f'<div class="detail-layout {"score-layout" if event["method"]=="SCORE" else ""}"><section><form method="post" action="/e/{eid}/confirm" data-ballot data-round-number="{event["current_round"]}" data-limit="{event["max_choices"]}" data-method="{event["method"]}">{hidden()}<input type="hidden" name="round_id" value="{rnd["id"]}">{view.cards(event,candidates,can_vote,saved)}'
         if not candidates: body+=f'<div class="empty">{t("暂无通过审核的作品。","No approved entries yet.")}</div>'
         if can_vote: body+=f'<div class="sticky-actions"><small data-selection-count aria-live="polite"></small><button class="btn">{t("核对选票","Review ballot")} →</button></div>'
         elif not own: body+=f'<p class="helper">{t("当前不能投票：请登录，并等待活动开始；暂停或截止后不接收新票。","Voting is unavailable. Sign in and wait for voting to open; paused or closed events accept no ballots.")}</p>'

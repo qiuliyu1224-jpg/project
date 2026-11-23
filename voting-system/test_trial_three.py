@@ -36,7 +36,7 @@ class ThirdTrialTests(unittest.TestCase):
         status,html,_=self.owner.request('/?lang=en')
         self.assertEqual(status,200)
         self.assertIn('<html lang="en">',html)
-        self.assertIn('0.4.7',html)
+        self.assertIn('0.4.8',html)
         self.assertEqual(self.owner.cookies['lang'],'en')
         self.assertEqual(self.owner.cookies['session'],session)
         self.assertIn('<html lang="en">',self.owner.request('/dashboard')[1])
@@ -87,7 +87,7 @@ class ThirdTrialTests(unittest.TestCase):
         self.assertEqual(status,200)
         self.assertIn('href="/"',html)
         self.assertIn(f'action="/e/{invited}/access"',html)
-        self.assertNotIn('<svg',html)
+        self.assertNotIn('class="result-chart"',html)
 
     def test_switch_account_revokes_only_current_session_and_preserves_data(self):
         old=self.owner.cookies['session']

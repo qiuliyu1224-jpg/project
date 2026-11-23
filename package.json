@@ -1,0 +1,16 @@
+{
+  "name": "votelab-local",
+  "version": "0.4.8",
+  "private": true,
+  "description": "VoteLab browser acceptance and recording tools",
+  "scripts": {
+    "test:ui": "node tools/ui-acceptance.cjs",
+    "tools:check": "node tools/check-dependencies.cjs",
+    "video:encode": "node tools/encode-video.cjs",
+    "browser:install": "node tools/install-browser.cjs"
+  },
+  "devDependencies": {
+    "ffmpeg-static": "5.3.0",
+    "playwright": "1.65.1"
+  }
+}

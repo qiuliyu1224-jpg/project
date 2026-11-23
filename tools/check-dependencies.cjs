@@ -1,0 +1,13 @@
+const {spawnSync}=require('node:child_process');
+const path=require('node:path');
+process.env.PLAYWRIGHT_BROWSERS_PATH??=path.resolve(__dirname,'../node_modules/.cache/ms-playwright');
+const {chromium}=require('playwright');
+const ffmpeg=require('ffmpeg-static');
+const fs=require('node:fs');
+if(!ffmpeg||!fs.existsSync(ffmpeg))throw Error('FFmpeg binary is missing');
+const result=spawnSync(ffmpeg,['-version'],{encoding:'utf8'});
+if(result.status!==0)throw Error(result.stderr||'FFmpeg did not run');
+console.log('Playwright:',require('playwright/package.json').version);
+console.log('Chromium:',chromium.executablePath());
+console.log('Chromium installed:',fs.existsSync(chromium.executablePath()));
+console.log(result.stdout.split('\n')[0]);

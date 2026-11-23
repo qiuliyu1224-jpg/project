@@ -1,0 +1,31 @@
+{
+  "tool": "Built-in image_gen",
+  "purpose": "VoteLab local-only artwork, generated for this project. WebP assets are delivery encodings of these originals.",
+  "prompts": [
+    {
+      "name": "hero-vote",
+      "prompt": "Create a standalone transparent-background UI illustration asset based on ONLY the ballot-box illustration on the right of the hero banner in the reference. One beautifully crafted compact voting box, warm walnut lower half, matte ivory rounded lid with a slot, a cream voting slip hovering above the slot bearing a raised bronze check mark, and three short bronze motion strokes. Premium restrained miniature sculpture, natural soft shadows, ivory/walnut/antique-gold palette. Isolate ONLY the object; no UI, no text, no surrounding beige panel, no floor, no landscape, no opaque background. Object fully visible with 8% clear padding, centered, high detail. Genuine transparent alpha.",
+      "transparent_background": true
+    },
+    {
+      "name": "login-vote",
+      "prompt": "Create a standalone transparent-background illustration asset matching the sculptural voting arrangement in the LEFT column of the reference. Warm walnut and ivory ballot box, cream ballot with bronze checkmark, small checklist board leaning at front, two understated stacked books to the left, a tiny muted-olive plant behind. Premium matte ceramic, wood and paper, warm soft daylight, sophisticated and restrained. Isolate just the arranged objects with their subtle contact shadows, no UI, no lettering, no surrounding background or rectangular panel. Entire arrangement visible with clear padding. Genuine transparent alpha.",
+      "transparent_background": true
+    },
+    {
+      "name": "example-entries",
+      "prompt": "Beautiful editorial architectural photograph, landscape 3:2. Elegant pale stone university or cultural building with arches framed by leafy trees, soft warm late-afternoon natural sunlight and rich refined shadows. Composition emphasizes artistry and considered framing. Muted natural cream, olive and warm stone colors, no heavy orange filter, no people, no lettering, no logos. This image is an illustrative cover for a general-purpose entry evaluation activity, not a branded campus campaign. Full-bleed professional photography.",
+      "transparent_background": false
+    },
+    {
+      "name": "example-choice",
+      "prompt": "Premium editorial still-life photograph, landscape 3:2. Thoughtfully arranged overhead architectural design workspace: a hand-drawn building sketch on ivory paper without readable words, a tidy spiral notebook, cream stone and walnut material swatches, one slim pencil, a few leaves just at the edge. Gentle natural window light and beautiful realistic soft shadows. Calm warm ivory, taupe and walnut palette, sophisticated and minimal. No people, no legible writing, no logos, no electronic screens. Full-bleed professional photography. Illustrative cover for comparing proposals.",
+      "transparent_background": false
+    },
+    {
+      "name": "example-projects",
+      "prompt": "Professional editorial architectural interior photograph, landscape 3:2. An elegant modern exhibition/project gallery with warm pale stone, natural walnut ceiling, floor-to-ceiling windows on the right, long refined geometric benches, soft natural sunlight casting a measured grid of shadows. Quiet premium contemporary atmosphere, subdued realistic ivory and wood colors, sophisticated composition. No people, no legible text, no logos. Full-bleed photography suitable as a project showcase illustrative cover.",
+      "transparent_background": false
+    }
+  ]
+}

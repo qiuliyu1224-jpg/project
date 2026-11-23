@@ -1,3 +1,20 @@
+# VoteLab 0.4.8 — Interface and guided workflows
+
+- Warm ivory/walnut UI, local voting illustrations and large photographic covers.
+- General-purpose homepage retains the original headlines and three example types.
+- Two 5-step guides point to real controls and continue across page navigation.
+- 600ms star feedback; final submit shrinks for 300ms, loads, then shows success
+  only after a confirmed save. Reduced-motion preferences are respected.
+- Ended events use a small acknowledgement dialog; transactional checks remain.
+- Project-local Playwright and FFmpeg, pinned dependencies, runnable UI acceptance
+  and recording scripts. These developer tools are not required by app users.
+- Existing local data, backups, exports, restore and revote workflows are retained.
+
+Upgrade: quit the older VoteLab background process, extract this ZIP, then launch.
+Keep your user data folder. See docs/VERSION_048.md for details and boundaries.
+
+---
+
 # VoteLab 0.4.7 — Local workflow update
 
 - English desktop startup and full version display from 0.4.6 are retained.

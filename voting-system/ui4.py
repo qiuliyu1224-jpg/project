@@ -2,14 +2,26 @@
 from ui3 import View as Base
 from app import e, VERSION
 from voting_rules import METHODS
+from ui_icons import icon
+import re
 
 
 class View(Base):
     def page(self,title,body,section='gallery'):
+        body=body.replace('<div class="hero-symbol">✦</div>','<img class="hero-vote" src="/static/assets/hero-vote.webp" alt="" aria-hidden="true">')
+        guide=f'<button type="button" class="guide-open" data-guide-open>{icon("book")}{self.t("操作指南","Quick guide")}</button>'
+        if self.path=='/':
+            body+=f'<div class="guide-entry">{icon("book")}<span>{self.t("第一次使用？","First time here?")}</span><button type="button" class="text-button" data-guide-open>{self.t("5步操作指南","5-step guide")} →</button></div>'
         page=super().page(title,body,section)
         if getattr(self,'local_operator',False):
             page=page.replace('</nav>',f'<a href="/_votelab/tools"><span class="nav-icon">⚙</span>{self.t("本机数据与升级","Local data & upgrades")}</a></nav>',1)
-        return page.replace('<script defer src="/static/app.js"></script>','<script defer src="/static/app.js"></script><script defer src="/static/v4.js"></script>').replace('VoteLab<small>03</small>',f'VoteLab<small>{VERSION}</small>')
+        navicons={'/':'explore','/dashboard':'calendar','/my-entries':'image','/my-votes':'check','/_votelab/tools':'database'}
+        page=re.sub(r'(<a[^>]+href="([^"]+)"[^>]*><span class="nav-icon">).*?(</span>)',lambda m:m[1]+icon(navicons.get(m[2],'explore'))+m[3],page)
+        page=page.replace('<span class="brand-mark">V</span>',f'<span class="brand-mark">{icon("ballot")}</span>')
+        page=page.replace('<div class="top-actions">','<div class="top-actions">'+guide,1)
+        page=page.replace('<body>',f'<body data-authenticated="{int(bool(self.user))}">')
+        page=page.replace('</head>','<link rel="stylesheet" href="/static/refined.css"></head>')
+        return page.replace('<script defer src="/static/app.js"></script>','<script defer src="/static/app.js"></script><script defer src="/static/v4.js"></script><script defer src="/static/experience.js"></script>').replace('VoteLab<small>03</small>',f'VoteLab<small>{VERSION}</small>')
 
     def method(self,event):
         return self.t(*METHODS[event['method']])
@@ -57,13 +69,14 @@ class View(Base):
             fields+=f'<input type="hidden" name="purpose" value="{purpose}"><div class="field"><label for="account-code">{t("验证码","Verification code")}</label><div class="code-field"><input id="account-code" name="code" inputmode="numeric" pattern="[0-9]{{6}}" required maxlength="6" autocomplete="one-time-code"><button class="btn secondary" formaction="/auth/code" formnovalidate data-get-code>{t("获取验证码","Get code")}</button></div></div><div class="notice" data-code-status role="status" aria-live="polite" hidden></div>'
         form=f'<form method="post" action="/{flow}">{self.hidden()}{fields}<button class="btn full-width">{title}</button></form>'
         links=self.link('/login',t('登录','Log in'))+self.link('/register',t('注册账号','Create account'))+self.link('/reset',t('忘记密码／旧账号设置密码','Forgot password / set a legacy account password'))
-        return self.page(title,self.head(title)+f'<section class="panel narrow">{notice}{form}<div class="button-row">{links}</div><p class="helper">{t("课程演示，验证码显示在页面，不证明手机号归属。请勿使用真实银行或常用密码。","Class demo: codes appear on screen and do not verify phone ownership. Use a fictional password.")}</p></section>')
+        story=f'<aside class="auth-intro"><p class="eyebrow">VOTELAB</p><h2>{t("每一次选择，都有依据。","Every choice deserves a reason.")}</h2><p>{t("创建活动、提交作品，也为你支持的想法投票。","Create events, submit work and vote for ideas you support.")}</p><img src="/static/assets/login-vote.webp" alt="" class="login-art" aria-hidden="true"></aside>'
+        return self.page(title,f'<div class="auth-layout">{story}<section class="panel auth-panel">'+self.head(title)+f'{notice}{form}<div class="button-row">{links}</div><p class="helper">{t("课程演示，验证码显示在页面，不证明手机号归属。请勿使用真实银行或常用密码。","Class demo: codes appear on screen and do not verify phone ownership. Use a fictional password.")}</p></section></div>')
 
     def examples(self):
         t=self.t
-        examples=[('A',t('城市光影','City light'), '4.50'), ('B',t('校园一角','Campus view'),'4.00'), ('C',t('自然印象','Nature study'),'3.50')]
-        cards=''.join(f'<article class="candidate"><div class="cover tone{i}"><span class="cover-type">{t("示意封面","Illustrative cover")}</span><span class="glyph">{letter}</span></div><div class="candidate-content"><strong>{name}</strong><p>{score} / 5 · {t("示意评分","Sample rating")}</p></div></article>' for i,(letter,name,score) in enumerate(examples))
-        return f'''<section class="panel demo-example" data-demo-example><span class="badge draft">{t('演示示例','Illustrative example')}</span><h2>{t('校园摄影作品评选','Campus photography competition')}</h2><p>{t('以下作品和评分仅用于说明操作流程。','The entries and scores below illustrate how the system works.')}</p><div class="candidate-grid">{cards}</div><ol><li>{t('创建活动，添加作品并预览。','Create an event, add entries and preview it.')}</li><li>{t('开放投票，参与者核对选择后提交。','Open voting. Voters review their choices before submitting.')}</li><li>{t('投票结束后，按创建者设置自动发布结果或仅供本人查看。','When voting ends, results are published automatically or remain creator-only, according to the event settings.')}</li></ol><details><summary>{t('怎样让多人参加同一场活动？','How can people join the same event?')}</summary><p>{t('大家打开同一个共享网址，可参加同一场活动。本地运行包在每台电脑上各自保存活动和选票。','Use the same shared website address to join an event together. Local packages store separate events and ballots on each computer.')}</p></details></section>'''
+        examples=[('entries',t('作品评选','Entry evaluation'),t('星级评分','Star rating'),t('对提交的作品进行评价与选择。','Evaluate and compare submitted work.'),'photo','image'),('choice',t('方案投票','Proposal voting'),t('单／多选','Single / multiple choice'),t('就多个备选方案进行投票表决。','Choose between alternative proposals.'),'choice','check'),('projects',t('项目展示','Project showcase'),t('排序投票','Ranked-choice voting'),t('为候选项目排序，表达偏好。','Rank projects to express your preferences.'),'custom','calendar')]
+        cards=''.join(f'<article class="example-card"><div class="example-copy"><span class="eyebrow">{t("演示示例","Illustrative example")}</span><h3>{name}</h3><p class="example-method">{icon(symbol)}{method}</p><p class="helper">{desc}</p></div><img src="/static/assets/example-{key}.webp" alt="" loading="lazy"><button type="button" class="example-action" data-guide-open data-guide-role="creator" data-guide-template="{template}">{t("了解如何创建","How to create")} {icon("arrow")}</button></article>' for key,name,method,desc,template,symbol in examples)
+        return f'<section class="demo-example" data-demo-example><div class="example-grid">{cards}</div><p class="helper">{t("以上仅为活动类型示例，不是真实活动或投票结果。本地安装包在每台电脑上各自保存数据。","These illustrate activity types, not real events or results. Local packages store separate data on each computer.")}</p><details class="helper"><summary>{t("本地活动能否跨设备共享？","Can local activities be shared across devices?")}</summary><p>{t("若将来提供共享部署，参与者需打开同一共享网址。当前本地安装包在每台电脑上各自保存数据，不会自动同步。","A shared deployment would require the same shared website address for all participants. Current local packages store separate data on each computer and do not automatically sync.")}</p></details></section>'
 
     def cards(self,event,candidates,interactive,selected=None):
         t=self.t; selected=selected or {}; out='<div class="candidate-grid">'
