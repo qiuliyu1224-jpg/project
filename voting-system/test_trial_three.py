@@ -27,6 +27,36 @@ class ThirdTrialTests(unittest.TestCase):
         guest.cookies['lang']='zh'
         self.assertIn('<html lang="zh-CN">',guest.request('/')[1])
 
+    def test_desktop_english_entry_overrides_old_preference_without_losing_session(self):
+        self.owner.cookies['lang']='zh'
+        session=self.owner.cookies['session']
+        with app.connect() as con:
+            before={table:con.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
+                    for table in ('users','elections','ballots','choices','preferences')}
+        status,html,_=self.owner.request('/?lang=en')
+        self.assertEqual(status,200)
+        self.assertIn('<html lang="en">',html)
+        self.assertIn('0.4.7',html)
+        self.assertEqual(self.owner.cookies['lang'],'en')
+        self.assertEqual(self.owner.cookies['session'],session)
+        self.assertIn('<html lang="en">',self.owner.request('/dashboard')[1])
+        with app.connect() as con:
+            after={table:con.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0]
+                   for table in before}
+        self.assertEqual(before,after)
+        # Users can still switch to Chinese and navigate in it during a run.
+        self.assertEqual(self.owner.post('/language',{'lang':'zh','next':'/dashboard'})[0],303)
+        self.assertIn('<html lang="zh-CN">',self.owner.request('/dashboard')[1])
+        # Reopening the desktop program returns to English again.
+        self.assertIn('<html lang="en">',self.owner.request('/?lang=en')[1])
+
+    def test_language_query_is_local_to_get_home_and_invalid_values_are_ignored(self):
+        guest=Client('zh')
+        self.assertIn('<html lang="zh-CN">',guest.request('/?lang=invalid')[1])
+        self.assertIn('<html lang="zh-CN">',guest.request('/register?lang=en')[1])
+        self.assertIn('<html lang="zh-CN">',guest.request('/?lang=')[1])
+        self.assertEqual(guest.cookies['lang'],'zh')
+
     def test_auto_publication_and_three_charts_leave_ballots_unchanged(self):
         self.open()
         self.assertEqual(self.voter.post(f'/e/{self.eid}/vote',{'candidate':str(self.ids()[0])})[0],303)

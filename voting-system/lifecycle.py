@@ -75,3 +75,35 @@ def next_round(con,event,form):
 def new_end_shortened(event,con):
     end=con.execute('SELECT planned_end FROM elections WHERE id=?',(event['id'],)).fetchone()[0]
     return end < event['ends_at']
+
+
+def start_revote(con, event, uid, form):
+    if event['status'] != 'CLOSED':
+        raise Problem('Close voting before a revote / 请先结束当前轮次。',409)
+    source = rules.current_round(con,event)
+    if scalar(form,'round_id') != str(source['id']):
+        raise Problem('Round changed; reload results / 轮次已改变，请刷新结果页。',409)
+    eligible = rules.revote_candidates(rules.counts(con,event))
+    if len(eligible) < 2:
+        raise Problem('No unresolved tie or empty round / 当前没有需要处理的平票或无票轮次。',409)
+    reason = scalar(form,'reason').strip()
+    if not 5 <= len(reason) <= 1000 or scalar(form,'acknowledge') != '1':
+        raise Problem('Confirm a fresh vote and give a reason (5–1000 characters) / 请确认重新投票，并填写5～1000字的原因。')
+    try:
+        end=int(datetime.strptime(scalar(form,'deadline'),'%Y-%m-%dT%H:%M').replace(tzinfo=entries.TZ).timestamp())
+    except ValueError:
+        raise Problem('Set a valid revote deadline / 请设置有效的加赛截止时间。')
+    if not time.time()+60 < end <= time.time()+entries.MAX_DAYS*86400:
+        raise Problem('Revote deadline must be within 30 days / 加赛截止时间须在1分钟后、30天内。')
+    if not source['snapshot']:
+        rules.snapshot(con,event)
+    number=event['current_round']+1
+    con.execute('INSERT INTO rounds(election_id,number,eligible,is_runoff) VALUES(?,?,?,?)',
+                (event['id'],number,json.dumps(eligible),int(event['method']=='MAJORITY')))
+    announcement=f'Round {number}: {reason}'
+    con.execute("UPDATE elections SET current_round=?,status='OPEN',paused=0,ends_at=?,planned_end=?,published=0,announcement=? WHERE id=?",
+                (number,end,end,announcement,event['id']))
+    con.execute('INSERT INTO event_changes(election_id,round_number,actor_id,kind,announcement,created) VALUES(?,?,?,?,?,?)',
+                (event['id'],number,uid,'TIE_REVOTE',announcement,int(time.time())))
+    new=rules.event_row(con.execute('SELECT * FROM elections WHERE id=?',(event['id'],)).fetchone())
+    rules.snapshot(con,new)

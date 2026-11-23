@@ -1,4 +1,45 @@
+# VoteLab 0.4.7 — Local workflow update
+
+- English desktop startup and full version display from 0.4.6 are retained.
+- Double-click the app, then use **Local data & upgrades** in the sidebar.
+  **Quit VoteLab safely** stops this instance so the next version can start.
+  Closing a browser alone does not stop the server. An older running version
+  must still be quit before the first upgrade to this release.
+- **Back up now** saves a consistent SQLite snapshot in the local data folder's
+  `backups` directory. Startup backups remain enabled. Backups contain private
+  account and ballot records; do not publish them or add them to GitHub.
+- **Restore all data** requires typing RESTORE. It validates the selected backup,
+  migrates an independent copy, saves a before-restore backup, then replaces the
+  database. Corrupt, incompatible or newer-schema backups are refused. All
+  sessions are cleared. This replaces the whole local database, not one event.
+  Only files in the local backups folder are listed; to restore a copied backup,
+  place it there with its original `voting-TIMESTAMP.sqlite3` name.
+- Result pages export aggregate CSV (all RCV count steps included), SVG with
+  original labels, and 2x PNG of the displayed chart. No voter identity or
+  individual ballot link is exported. Private, unpublished and invited results
+  keep the same access checks. CSV preserves zero vs skipped ratings and
+  neutralises formula-like text for spreadsheets.
+- Creators can start an explicit fresh ballot for ties or no-vote rounds.
+  A reason, deadline and confirmation are required. Choice/rating joint leaders
+  enter; majority cutoff ties include everyone at or above the cutoff; RCV
+  restarts its whole eligible roster. The method is unchanged, old ballots stay
+  in history, and stale round forms are rejected. No random elimination, manual
+  winner assignment, award allocation or joint approval is introduced.
+- Local tools require the launcher's per-process capability, not just a website
+  account. Restore, application requests and deadline maintenance are serialised
+  so database replacement cannot overlap a request or background DB connection.
+- Still a local classroom prototype: no cloud sharing or real SMS verification.
+  Native packages are Windows x64, macOS Apple Silicon and macOS Intel.
+
+---
+
 # VoteLab / COMP3500
+
+## 0.4.6 英文启动入口 / English desktop entry
+
+双击首次启动或重复打开程序时，会明确进入英文首页，解决旧版 `lang=zh` 偏好导致仍显示中文的问题。进入后仍可在顶栏切换中文，普通页面导航保留当前选择。侧栏显示完整版本号。账号、活动、图片和选票不清除；旧数据目录及启动备份机制保持不变。启动器不再将旧版本实例误当作新版：升级前请退出已知旧 VoteLab，再打开新版。
+
+Desktop launches explicitly open English even when the browser retains an earlier Chinese preference. You can still choose Chinese afterward. The sidebar shows the exact version. Older running versions are not silently reused. See [VERSION_046](docs/VERSION_046.md) for the eight-item acceptance checklist and limits.
 
 ## 0.4.5 重复启动处理 / Repeated-launch recovery
 

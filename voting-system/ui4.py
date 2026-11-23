@@ -1,13 +1,15 @@
 """Version four views, retaining the existing visual design."""
 from ui3 import View as Base
-from app import e
+from app import e, VERSION
 from voting_rules import METHODS
 
 
 class View(Base):
     def page(self,title,body,section='gallery'):
         page=super().page(title,body,section)
-        return page.replace('<script defer src="/static/app.js"></script>','<script defer src="/static/app.js"></script><script defer src="/static/v4.js"></script>').replace('VoteLab<small>03</small>','VoteLab<small>04</small>')
+        if getattr(self,'local_operator',False):
+            page=page.replace('</nav>',f'<a href="/_votelab/tools"><span class="nav-icon">⚙</span>{self.t("本机数据与升级","Local data & upgrades")}</a></nav>',1)
+        return page.replace('<script defer src="/static/app.js"></script>','<script defer src="/static/app.js"></script><script defer src="/static/v4.js"></script>').replace('VoteLab<small>03</small>',f'VoteLab<small>{VERSION}</small>')
 
     def method(self,event):
         return self.t(*METHODS[event['method']])

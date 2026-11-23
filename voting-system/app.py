@@ -14,6 +14,7 @@ from urllib.parse import parse_qs
 from demo_server import create_server
 
 ROOT = Path(__file__).resolve().parent
+VERSION = '0.4.7'
 DB = Path(os.environ.get('VOTING_DB', str(ROOT / 'data' / 'voting.sqlite3')))
 CSRF_KEY = secrets.token_bytes(32)  # restarting invalidates open forms, not stored ballots
 
@@ -34,6 +35,9 @@ def init_db():
     DB.parent.mkdir(parents=True, exist_ok=True)
     con = connect()
     try:
+        from storage import SCHEMA_VERSION
+        if con.execute('PRAGMA user_version').fetchone()[0] > SCHEMA_VERSION:
+            raise ValueError('This data folder requires a newer VoteLab version. Do not downgrade.')
         with con:
             con.executescript((ROOT / 'schema.sql').read_text(encoding='utf-8'))
             columns = {r['name'] for r in con.execute('PRAGMA table_info(users)')}
@@ -65,6 +69,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS event_changes (id INTEGER PRIMARY KEY, election_id INTEGER REFERENCES elections(id),
                     round_number INTEGER NOT NULL, actor_id INTEGER REFERENCES users(id), kind TEXT NOT NULL,
                     announcement TEXT NOT NULL, created INTEGER NOT NULL);''')
+            con.execute(f'PRAGMA user_version={SCHEMA_VERSION}')
     finally:
         con.close()
 

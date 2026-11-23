@@ -14,6 +14,7 @@ import lifecycle
 import voting_rules as rules
 import translation
 import charts
+import exports
 from app import Problem, e, scalar
 from auth import issue_code, consume_code
 from ui4 import View
@@ -21,7 +22,7 @@ from ui4 import View
 
 def dispatch(env,start):
     path=env.get('PATH_INFO','/')
-    if path in ('/static/style.css','/static/entries.css','/static/app.js','/static/v4.js','/static/translation.js'):
+    if path in ('/static/style.css','/static/entries.css','/static/app.js','/static/v4.js','/static/translation.js','/static/exports.js'):
         data=(core.ROOT/path.lstrip('/')).read_bytes()
         start('200 OK',[('Content-Type',('text/css' if path.endswith('.css') else 'application/javascript')+'; charset=utf-8'),('Cache-Control','no-cache')]); return [data]
     cookies=SimpleCookie()
@@ -32,10 +33,18 @@ def dispatch(env,start):
     if not re.fullmatch('[a-f0-9]{48}',browser): browser=secrets.token_hex(24)
     lang=cookies['lang'].value if 'lang' in cookies else 'en'
     if lang not in ('zh','en'): lang='en'
+    # The desktop launcher explicitly opens English, including browsers which
+    # still have a Chinese preference from an earlier release. Other pages and
+    # ordinary navigation continue to respect a user's deliberate selection.
+    launch_lang = (parse_qs(env.get('QUERY_STRING','')).get('lang',[''])[0]
+                   if path == '/' and env.get('REQUEST_METHOD') == 'GET' else '')
+    if launch_lang in ('en','zh'): lang = launch_lang
     csrf=hmac.new(core.CSRF_KEY,(browser+'|'+token).encode(),'sha256').hexdigest()
     headers=[('Content-Type','text/html; charset=utf-8'),('Cache-Control','no-store'),('X-Content-Type-Options','nosniff'),('Referrer-Policy','same-origin'),('Content-Security-Policy',"default-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; form-action 'self'; frame-ancestors 'none'"),('Set-Cookie',f'browser={browser}; HttpOnly; SameSite=Lax; Path=/')]
     con=core.connect(); user=None; form={}; event=None
-    view=View(lang,csrf,user,path); t=view.t; hidden=view.hidden; link=view.link; button=view.button
+    if launch_lang in ('en','zh'):
+        headers.append(('Set-Cookie',f'lang={lang}; SameSite=Lax; Path=/; Max-Age=31536000'))
+    view=View(lang,csrf,user,path); view.local_operator=bool(env.get('votelab.local_operator')); t=view.t; hidden=view.hidden; link=view.link; button=view.button
     def response(body,status=200):
         phrase={200:'OK',303:'See Other',400:'Bad Request',401:'Unauthorized',403:'Forbidden',404:'Not Found',409:'Conflict',413:'Content Too Large',429:'Too Many Requests',500:'Internal Server Error'}
         if lang=='en' and headers[0][1].startswith('text/html') and body:
@@ -153,7 +162,7 @@ def dispatch(env,start):
                 with con:
                     con.execute('BEGIN IMMEDIATE'); eid=entries.save_event(con,user['id'],form,files)
                 return redirect(f'/e/{eid}/preview')
-            match=re.fullmatch(r'/e/(\d+)/(open|close|publish|vote|confirm|edit|collect|apply|review|access|pause|revision|resume|next-round)',path)
+            match=re.fullmatch(r'/e/(\d+)/(open|close|publish|vote|confirm|edit|collect|apply|review|access|pause|revision|resume|next-round|revote)',path)
             if not match: raise Problem('Page not found / 页面不存在。',404)
             eid,action=int(match[1]),match[2]; event=get_event(eid)
             if action=='access':
@@ -217,6 +226,7 @@ def dispatch(env,start):
                     if len(cs(event))<2 or (event['method']=='SINGLE' and event['max_choices']>len(cs(event))): raise Problem('Need at least 2 entries and a valid selection limit / 至少需2项作品，最多可选数量不能超过作品数。',409)
                     con.execute('UPDATE elections SET paused=0 WHERE id=?',(eid,))
                 elif action=='next-round': lifecycle.next_round(con,event,form)
+                elif action=='revote': lifecycle.start_revote(con,event,user['id'],form)
                 audit(eid,action)
             if action in ('pause','revision'): return redirect(f'/e/{eid}/revision' if action=='pause' else f'/e/{eid}/preview')
             return redirect(f'/e/{eid}/review' if action=='review' else f'/e/{eid}/preview' if action=='edit' else f'/e/{eid}')
@@ -258,12 +268,13 @@ def dispatch(env,start):
             body+=f'</div><div data-no-matches class="empty" hidden>{t("没有匹配的活动。","No matching events.")}</div>'
             if not count: body+=f'<div class="empty">{t("暂无活动。","No events yet.")}</div>'
             return response(view.page(title,body,section))
-        match=re.fullmatch(r'/e/(\d+)(/preview|/edit|/results|/apply|/review|/revision|/status)?',path)
+        match=re.fullmatch(r'/e/(\d+)(/preview|/edit|/results|/results.csv|/chart.svg|/apply|/review|/revision|/status)?',path)
         if not match: raise Problem('Page not found / 页面不存在。',404)
         eid=int(match[1]); suffix=match[2] or ''; event=get_event(eid)
         if suffix in ('/preview','/edit','/review','/revision'): require_owner(event)
         if event['status']=='DRAFT' and not event['submissions_open'] and not owner(event): raise Problem('Draft not public / 草稿尚未公开。',403)
         if not access(event):
+            if suffix in ('/results.csv','/chart.svg'): raise Problem('Enter the invitation code first / 请先输入邀请码。',403)
             require()
             body=view.head(t('此活动需要邀请码','Invitation required'),e(event['title']),link('/',t('返回活动广场','Back to explore')))+f'<form class="panel narrow" method="post" action="/e/{eid}/access">{hidden()}<label class="field">{t("请输入发起者提供的邀请码","Enter the code supplied by the organiser")}<input name="invite_code" required maxlength="64" autocomplete="off"></label><button class="btn">{t("进入活动","Enter event")}</button></form>'
             return response(view.page(t('输入邀请码','Enter invitation code'),body))
@@ -301,12 +312,19 @@ def dispatch(env,start):
             return response(view.page(t('审核作品','Review submissions'),body,'dashboard'))
         rnd=rules.current_round(con,event); count=con.execute('SELECT COUNT(*) FROM ballots WHERE round_id=?',(rnd['id'],)).fetchone()[0]
         can_result=event['status']=='CLOSED' and (owner(event) or (event['published'] and event['visibility']=='PUBLIC'))
-        if suffix=='/results':
+        if suffix in ('/results','/results.csv','/chart.svg'):
             if not can_result: raise Problem('Results not published or private / 结果尚未发布或仅创建者可查看。',403)
             try: number=int(scalar(query,'round',str(event['current_round'])))
             except ValueError: raise Problem('Invalid round / 轮次无效。')
             if not 1<=number<=event['current_round']: raise Problem('Round not found / 轮次不存在。',404)
-            result=rules.counts(con,event,number); body=view.head(e(event['title']),t('按轮次查看汇总，旧轮选票不会混入本轮。','Round totals are kept separate; earlier ballots never count in a new round.'),link(f'/e/{eid}',t('返回活动','Back to event')))
+            result=rules.counts(con,event,number)
+            def download(data,content_type,extension):
+                start('200 OK',[('Content-Type',content_type),('Content-Disposition',f'attachment; filename="VoteLab-{eid}-round-{number}.{extension}"'),('Cache-Control','private, no-store'),('X-Content-Type-Options','nosniff')])
+                return [data]
+            if suffix=='/results.csv':
+                return download(exports.results_csv(result,event,number),'text/csv; charset=utf-8','csv')
+            body=view.head(e(event['title']),t('按轮次查看汇总，旧轮选票不会混入本轮。','Round totals are kept separate; earlier ballots never count in a new round.'),link(f'/e/{eid}',t('返回活动','Back to event')))
+            body+=link(f'/e/{eid}/results.csv?round={number}',t('导出本轮汇总 CSV','Export round summary CSV'))
             body+='<div class="tabs">'+''.join(f'<a href="/e/{eid}/results?round={n}">{t("轮次","Round")} {n}</a>' for n in range(1,event['current_round']+1))+'</div>'
             states={'NO_VOTES':t('暂无有效选票，不产生赢家。','No valid ballots; no winner.'),'NO_ACTIVE_BALLOTS':t('有效偏好已用尽，不产生赢家。','No continuing preferences; no winner.'),'ELIMINATION_TIE':t('最低票并列，计票暂停；不会随机淘汰。','Lowest count tied; counting stops without random elimination.'),'CUTOFF_TIE':t('决选入围边界并列，需处理平票后再推进。','Runoff cutoff tied; resolve the tie before proceeding.'),'FINAL_TIE':t('决选平票，结果待处理。','Final round tied; resolution pending.'),'RUNOFF_REQUIRED':t('无人过半，需要前两名进入第二轮重新投票。','No majority; the top two need a new runoff ballot.'),'RANKED':t('相同结果显示并列，奖项名额另行处理。','Equal results share a rank. Award allocation is separate.'),'WINNER':t('已产生过半赢家。','A candidate has a majority.')}
             body+=f'<section class="panel"><h2>{t("评分平均分（0～5）","Average rating (0–5)") if result["method"]=="SCORE" else t("计票结果","Count results")}</h2><p>{result["ballots"]} {t("张本轮有效选票","valid ballots in this round")}</p><div class="notice info">{states[result["state"]]}</div>'
@@ -338,15 +356,23 @@ def dispatch(env,start):
                 except ValueError: raise Problem('Invalid counting step / 计票步骤无效。')
                 if not 1<=count_step<=len(result['rounds']): raise Problem('Invalid counting step / 计票步骤无效。')
                 count_select=f'<label class="field">{t("RCV 计票步骤","RCV counting step")}<select name="count">'+''.join(f'<option value="{i}" {"selected" if i==count_step else ""}>{i}</option>' for i in range(1,len(result['rounds'])+1))+'</select></label>'
+            if suffix=='/chart.svg':
+                return download(exports.chart_svg(result,chart_kind or 'bar',lang,count_step),'image/svg+xml; charset=utf-8','svg')
             body+=f'<section class="panel"><h2>{t("统计图","Result charts")}</h2><form method="get" action="/e/{eid}/results"><input type="hidden" name="round" value="{number}"><label class="field">{t("统计图类型","Chart type")}<select name="chart">'+''.join(f'<option value="{key}" {"selected" if key==(chart_kind or "bar") else ""}>{label}</option>' for key,label in chart_options)+f'</select></label>{count_select}<button class="btn">{t("生成统计图","Generate statistics chart")}</button></form>'
             if chart_kind:
                 try: body+=charts.render_chart(result,kind=chart_kind,lang=lang,rcv_round=count_step)
                 except ValueError: raise Problem('Invalid chart settings / 统计图设置无效。')
+                body+=f'<div class="button-row">'+link(f'/e/{eid}/chart.svg?round={number}&chart={chart_kind}'+(f'&count={count_step}' if count_step else ''),t('下载 SVG（原文标签）','Download SVG (original labels)'))+f'<button type="button" class="btn secondary" data-export-png="VoteLab-{eid}-round-{number}.png">{t("下载 PNG（当前图表）","Download PNG (displayed chart)")}</button></div><p class="helper" data-export-status role="status"></p><script defer src="/static/exports.js"></script>'
             body+='</section>'
             if owner(event) and number==event['current_round'] and result['state']=='RUNOFF_REQUIRED':
                 deadline=datetime.fromtimestamp(time.time()+86400,entries.TZ).strftime('%Y-%m-%dT%H:%M')
                 body+=f'<form class="panel" method="post" action="/e/{eid}/next-round">{hidden()}<label class="field">{t("第二轮截止时间","Runoff deadline")}<input type="datetime-local" name="deadline" required value="{deadline}"></label><button class="btn">{t("开启前两名决选（重新投票）","Open top-two runoff (new ballots)")}</button></form>'
-            body+=f'<p class="helper">{t("奖项分配与平票联合审批尚未实现；系统不会擅自决定并列赢家。","Award allocation and joint tie-resolution approval remain unfinished. The system does not invent a tie-break winner.")}</p>'
+            eligible=rules.revote_candidates(result)
+            if owner(event) and number==event['current_round'] and len(eligible)>=2:
+                deadline=datetime.fromtimestamp(time.time()+86400,entries.TZ).strftime('%Y-%m-%dT%H:%M')
+                included=' / '.join(names[cid] for cid in eligible)
+                body+=f'<form class="panel" method="post" action="/e/{eid}/revote" data-confirm="{t("确认开启新轮次？旧票仅保留在历史中。","Start a new round? Previous ballots remain in history only.")}">{hidden()}<input type="hidden" name="round_id" value="{rnd["id"]}"><h2>{t("平票／无有效票：开启加赛","Tie / no valid votes: start a revote")}</h2><p>{t("本次入围作品：","Eligible entries: ")}{e(included)}</p><p>{t("多数决选保留入围线以上所有作品；RCV重新进行完整排序投票；普通投票和评分仅对并列第一加赛。投票方式保持不变。","Majority voting includes everyone at or above the cutoff. RCV restarts the full ranked ballot. Choice and rating ties include the joint leaders. The voting method stays unchanged.")}</p><label class="field">{t("加赛原因／公告","Reason / announcement")}<textarea name="reason" minlength="5" maxlength="1000" required rows="3"></textarea></label><label class="field">{t("加赛截止时间（UTC+8）","Revote deadline (UTC+8)")}<input type="datetime-local" name="deadline" required value="{deadline}"></label><label class="check-row"><input type="checkbox" name="acknowledge" value="1" required>{t("我确认旧票不带入新轮次，参与者需要重新投票。","I confirm that previous ballots will not carry over. Participants must vote again.")}</label><button class="btn">{t("确认开启加赛","Start revote")}</button></form>'
+            body+=f'<p class="helper">{t("加赛保留历史选票和原因，不随机淘汰或指定赢家。奖项分配及多人联合审批不在本版本范围内。","Revotes preserve ballot history and reasons. No random elimination or manually assigned winner. Award allocation and joint approval are outside this version.")}</p>'
             return response(view.page(t('结果','Results'),body))
         preview=suffix=='/preview' or (event['status']=='DRAFT' and owner(event)); candidates=cs(event)
         own=con.execute('SELECT id FROM ballots WHERE round_id=? AND user_id=?',(rnd['id'],user['id'] if user else -1)).fetchone()

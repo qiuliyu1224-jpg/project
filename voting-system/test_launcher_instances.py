@@ -225,7 +225,21 @@ class LauncherInstanceTests(unittest.TestCase):
             caught.exception.close()
         with LOCAL_HTTP.open(Request(endpoint, headers={'X-VoteLab-Instance': token}), timeout=3) as response:
             self.assertEqual(response.status, 200)
-            self.assertEqual(json.loads(response.read()), {'application': 'VoteLab', 'token': token})
+            self.assertEqual(json.loads(response.read()), {'application': 'VoteLab', 'token': token, 'version': '0.4.7'})
+
+    def test_operator_safe_quit_releases_lock_and_allows_restart(self):
+        from urllib.parse import urlencode
+        process,address,_ = self.start()
+        token = json.loads((self.data/'running-instance.json').read_text())['token']
+        request = Request(address+'_votelab/tools',
+            data=urlencode({'csrf':token,'action':'quit'}).encode(),
+            headers={'Cookie':'votelab_operator='+token})
+        with LOCAL_HTTP.open(request,timeout=5) as response:
+            self.assertIn(b'shutting down safely',response.read())
+        self.assertEqual(process.wait(timeout=12),0)
+        self.assertFalse((self.data/'running-instance.json').exists())
+        _,_,_ = self.start()
+        self.assertTrue((self.data/'backups').is_dir())
 
     def test_backup_only_refuses_running_instance_without_opening_browser_or_claiming_success(self):
         self.start()

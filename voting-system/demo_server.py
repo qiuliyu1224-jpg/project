@@ -1,5 +1,6 @@
 """Concurrent server for small classroom demos, not production hosting."""
 import socket
+import re
 import sys
 from socketserver import TCPServer, ThreadingMixIn
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
@@ -21,6 +22,11 @@ class DemoServer(ThreadingMixIn, WSGIServer):
 
 
 class DemoHandler(WSGIRequestHandler):
+    def log_message(self, format, *args):
+        message = format % args
+        message = re.sub(r'([?&]local=)[^ &]*',r'\1[redacted]',message)
+        super().log_message('%s',message)
+
     def setup(self):
         super().setup()
         self.connection.settimeout(30)

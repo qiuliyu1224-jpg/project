@@ -17,11 +17,13 @@ import time
 from contextlib import closing
 from datetime import datetime
 import webbrowser
+from storage import backup_database
 from urllib.request import build_opener, HTTPRedirectHandler, ProxyHandler, Request
 
 
 STARTUP_LOG = logging.getLogger('votelab.launcher')
 INSTANCE_PATH = '/_votelab/instance'
+APP_VERSION = '0.4.7'
 
 
 class StartupProblem(RuntimeError):
@@ -76,7 +78,7 @@ def launcher_status_app(application, token):
                      and hmac.compare_digest(supplied.encode(), token.encode()))
             start('200 OK' if valid else '403 Forbidden',
                   [('Content-Type', 'application/json'), ('Cache-Control', 'no-store')])
-            return [json.dumps({'application': 'VoteLab', 'token': token}
+            return [json.dumps({'application': 'VoteLab', 'token': token, 'version': APP_VERSION}
                                if valid else {'error': 'Forbidden'}).encode()]
         return application(env, start)
     return dispatch
@@ -99,7 +101,7 @@ def find_running_instance(data_dir, timeout=4):
                                   headers={'X-VoteLab-Instance': token})
                 with opener.open(request, timeout=.5) as response:
                     result = json.loads(response.read(1024))
-                    if response.status == 200 and result == {'application': 'VoteLab', 'token': token}:
+                    if response.status == 200 and result == {'application': 'VoteLab', 'token': token, 'version': APP_VERSION}:
                         return address
         except (OSError, ValueError, KeyError, TypeError):
             pass
@@ -120,12 +122,17 @@ def write_running_instance(data_dir, port, token):
         temporary.unlink(missing_ok=True)
 
 
-def open_browser(address):
+def open_browser(address, local_token=None):
+    # Each double-click starts at the English UI, even with a legacy lang=zh
+    # cookie. The instance identity continues to use its canonical base URL.
+    startup_address = address + '?lang=en'
+    if local_token:
+        startup_address += '&local=' + local_token
     try:
-        if not webbrowser.open(address):
-            STARTUP_LOG.warning('Open this address manually: %s', address)
+        if not webbrowser.open(startup_address):
+            STARTUP_LOG.warning('Open this address manually: %s', address + '?lang=en')
     except Exception:
-        STARTUP_LOG.exception('Browser launch failed; open %s manually.', address)
+        STARTUP_LOG.exception('Browser launch failed; open %s manually.', address + '?lang=en')
 
 
 def report_startup_failure(error):
@@ -176,26 +183,6 @@ def user_data_directory():
     return Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local' / 'share')) / 'VoteLab'
 
 
-def backup_database(database):
-    if not database.exists():
-        return None
-    backups = database.parent / 'backups'
-    backups.mkdir(exist_ok=True)
-    timestamp = datetime.now().strftime('%Y%m%d-%H%M%S-%f')
-    backup = backups / f'voting-{timestamp}.sqlite3'
-    temporary = backup.with_suffix('.partial')
-    try:
-        with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)) as source:
-            with closing(sqlite3.connect(temporary)) as target:
-                source.backup(target)
-                if target.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
-                    raise sqlite3.DatabaseError('The backup did not pass SQLite integrity checking.')
-        temporary.replace(backup)
-        return backup
-    finally:
-        temporary.unlink(missing_ok=True)
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8765)
@@ -215,6 +202,7 @@ def main():
         address = find_running_instance(data_dir)
         if not address:
             raise StartupProblem('VoteLab is already starting or running for this data folder. '
+                                 'An older VoteLab version may still be running. '
                                  'Wait a moment and open it again. If it remains unresponsive, '
                                  'quit the known VoteLab process in Activity Monitor (Mac) '
                                  'or Task Manager (Windows) before retrying.')
@@ -222,13 +210,15 @@ def main():
         STARTUP_LOG.info(message)
         print(message, flush=True)
         if not args.no_browser:
-            open_browser(address)
+            state=json.loads((data_dir / 'running-instance.json').read_text(encoding='utf-8'))
+            open_browser(address,state['token'])
         return
     try:
         (data_dir / 'running-instance.json').unlink(missing_ok=True)
         # Application imports can fail before the web server exists. Log them too.
         import app
         from maintenance import start_maintenance
+        from local_tools import LocalTools
         app.DB = data_dir / 'voting.sqlite3'
         print(f'VoteLab data directory: {data_dir}', flush=True)
         if args.backup_only:
@@ -237,10 +227,12 @@ def main():
             return
 
         token = secrets.token_hex(24)
+        gate = threading.RLock()
+        tools = LocalTools(app.app,data_dir,token,gate,lambda: server.shutdown())
         # A legacy app has no identity endpoint or lock. Do not migrate its DB or
         # silently start another server when its port may already be in use.
         try:
-            server = app.create_server('127.0.0.1', args.port, launcher_status_app(app.app, token))
+            server = app.create_server('127.0.0.1', args.port, launcher_status_app(tools, token))
         except OSError as error:
             if error.errno == errno.EADDRINUSE or getattr(error, 'winerror', None) in (10048, 10013):
                 raise StartupProblem(f'Port {args.port} is unavailable or already in use. '
@@ -253,13 +245,13 @@ def main():
             if snapshot:
                 print(f'Startup backup: {snapshot}', flush=True)
             app.init_db()
-            stop, worker = start_maintenance()
+            stop, worker = start_maintenance(gate=gate)
             address = f'http://127.0.0.1:{server.server_port}/'
             write_running_instance(data_dir, server.server_port, token)
             STARTUP_LOG.info('VoteLab is ready at %s', address)
             print(f'VoteLab is ready at {address}', flush=True)
             if not args.no_browser:
-                threading.Thread(target=open_browser, args=(address,), daemon=True).start()
+                threading.Thread(target=open_browser, args=(address,token), daemon=True).start()
             try:
                 server.serve_forever()
             except KeyboardInterrupt:

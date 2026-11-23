@@ -104,13 +104,37 @@ def counts(con, event, number=None):
     if not ballots: return result
     if method == 'MAJORITY':
         if rows[0]['total'] > ballots/2: result.update(state='WINNER', winner=rows[0]['id'])
-        elif rnd['is_runoff']:
+        elif len(rows) == 2:
             result.update(state='FINAL_TIE', tied=[r['id'] for r in rows if r['total']==rows[0]['total']])
         elif len(rows) > 2 and rows[1]['total'] == rows[2]['total']:
             result.update(state='CUTOFF_TIE', tied=[r['id'] for r in rows if r['total']==rows[1]['total']])
         else: result.update(state='RUNOFF_REQUIRED', finalists=[r['id'] for r in rows[:2]])
     else: result['state'] = 'RANKED'
     return result
+
+
+def revote_candidates(result):
+    """Deterministic eligibility, never an organiser-selected tie-break winner."""
+    from fractions import Fraction
+    rows = result['rows']
+    state = result['state']
+    if state in ('NO_VOTES', 'NO_ACTIVE_BALLOTS', 'ELIMINATION_TIE'):
+        # Restart the whole RCV ballot, not just the tied lowest candidates.
+        return [r['id'] for r in rows]
+    if state == 'CUTOFF_TIE':
+        cutoff = rows[1]['total']
+        return [r['id'] for r in rows if r['total'] >= cutoff]
+    if state == 'FINAL_TIE':
+        return result['tied']
+    if state == 'RANKED' and rows:
+        values = {r['id']: Fraction(r['total'], r['n']) if result['method'] == 'SCORE' else r['total']
+                  for r in rows if result['method'] != 'SCORE' or r['n']}
+        if values:
+            best = max(values.values())
+            tied = [cid for cid, value in values.items() if value == best]
+            if len(tied) > 1:
+                return tied
+    return []
 
 
 def submit(con, eid, uid, form):
