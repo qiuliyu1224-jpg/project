@@ -154,3 +154,24 @@ results and local data tools.
 Use fictional demonstration details. This project does not provide real SMS
 verification, verified school identity, cloud synchronisation or cryptographic
 ballot anonymity.
+
+## Team Contributions
+
+All eight members discussed and agreed on the voting rules during group meetings. The team also jointly confirmed the need for language switching.
+
+All members participated in user-oriented trials of versions 0.4.2-0.4.5. Members used the application, identified inconvenient steps and suggested improvements. Feedback included missing Back buttons, inconsistent English text, and a selection-limit field that did not match the majority-runoff rules. The team also discussed account switching and clearer result presentation. This feedback informed later revisions.
+
+Each member prepared their own presentation section. The individual contributions below distinguish initial prototype work, presentation responsibilities and later implementation work.
+
+| Member | Student ID | Contribution |
+| --- | --- | --- |
+| **Li Xiaxi** | 13763968 | Prepared the Requirements Engineering section, covering user needs and the system's main requirements. Participated in early use-case and workflow discussions and contributed feedback during the user trials. Also proposed distributing VoteLab as a downloadable ZIP package that users could extract and launch by double-clicking a startup file. |
+| **Lu Ruilin** | 13749163 | Contributed to basic page sketches and layout suggestions for the initial prototype. Shared responsibility for the diagram-related work with Ge Yiwen and Hong Yan Wa, including flowcharts, sequence diagrams and activity diagrams. Prepared the corresponding presentation material to explain system processes and interactions, and participated in early user trials. |
+| **Ge Yiwen** | 13695236 | Participated in initial database planning and technical research. Shared responsibility for system diagrams with Lu Ruilin and Hong Yan Wa. Contributed to the modelling section of the presentation, using process and interaction models to explain how the system works. Also participated in early user trials and improvement discussions. |
+| **Hong Yan Wa** | 13886458 | Contributed to basic page sketches and layout suggestions for the initial prototype. Worked with Lu Ruilin and Ge Yiwen on the diagram-related section. Helped prepare the modelling slides that explained workflows, interactions and activity paths. Also tried the early application from a user's perspective and contributed improvement suggestions. |
+| **Zhang Qiuyun** | 13796766 | Prepared the Implementation section and led later application development and integration. Guided, reviewed and followed up on the team's initial work. Independently proposed improvements to the interface, navigation, interaction feedback, user guides and demo flows, and implemented the team's language-switching requirement. Participated in early user trials and organised feedback into specific changes. Took sole responsibility for testing and verifying implementation updates from versions 0.4.5-0.4.10, including checks against agreed requirements, regression checks and retesting after fixes. Managed GitHub releases, coordinated presentation preparation and timing, and reviewed the overall flow of slides and scripts and their focus on software engineering concepts. |
+| **Luo Jiayi** | 13782344 | Participated in early use-case and workflow discussions and contributed feedback during user trials. Prepared the Testing section with Zhao Yang, organising presentation material around how the application was checked. This section covered testing scenarios and the application's behaviour under normal and exceptional conditions. |
+| **Zhao Yang** | 13792061 | Participated in initial database planning and technical research, as well as early user trials and improvement discussions. Prepared the Testing section with Luo Jiayi, helping organise the testing material and explain the checks used in the project. The presentation connected testing activities with the system's expected behaviour. |
+| **Xia Weiyi** | 13744585 | Participated in early use-case analysis, basic flow diagrams and discussion of exceptional situations. Contributed feedback during the early user trials. Prepared the Validation section, focusing on whether the application met its intended user needs and requirements, and connected this discussion with the team's trial feedback. |
+
+AI tools were used to assist with problem analysis, coding, translation and English editing.
