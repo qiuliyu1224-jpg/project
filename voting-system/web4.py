@@ -25,7 +25,7 @@ def dispatch(env,start):
     if path in ('/static/assets/hero-vote.webp','/static/assets/login-vote.webp','/static/assets/example-entries.webp','/static/assets/example-choice.webp','/static/assets/example-projects.webp'):
         data=(core.ROOT/path.lstrip('/')).read_bytes()
         start('200 OK',[('Content-Type','image/webp'),('Cache-Control','no-cache'),('X-Content-Type-Options','nosniff')]); return [data]
-    if path in ('/static/style.css','/static/entries.css','/static/refined.css','/static/app.js','/static/v4.js','/static/translation.js','/static/exports.js','/static/experience.js'):
+    if path in ('/static/style.css','/static/entries.css','/static/refined.css','/static/app.js','/static/v4.js','/static/translation.js','/static/exports.js','/static/experience.js','/static/guide.js','/static/demo.js'):
         data=(core.ROOT/path.lstrip('/')).read_bytes()
         start('200 OK',[('Content-Type',('text/css' if path.endswith('.css') else 'application/javascript')+'; charset=utf-8'),('Cache-Control','no-cache')]); return [data]
     cookies=SimpleCookie()
@@ -36,9 +36,8 @@ def dispatch(env,start):
     if not re.fullmatch('[a-f0-9]{48}',browser): browser=secrets.token_hex(24)
     lang=cookies['lang'].value if 'lang' in cookies else 'en'
     if lang not in ('zh','en'): lang='en'
-    # The desktop launcher explicitly opens English, including browsers which
-    # still have a Chinese preference from an earlier release. Other pages and
-    # ordinary navigation continue to respect a user's deliberate selection.
+    # Explicit home links may select a language. Normal desktop launches and
+    # navigation preserve the language deliberately chosen by the user.
     launch_lang = (parse_qs(env.get('QUERY_STRING','')).get('lang',[''])[0]
                    if path == '/' and env.get('REQUEST_METHOD') == 'GET' else '')
     if launch_lang in ('en','zh'): lang = launch_lang
@@ -97,6 +96,11 @@ def dispatch(env,start):
         with con: core.refresh(con)
         user=con.execute('SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token=? AND s.expires>?',(token,int(time.time()))).fetchone(); view.user=user
         query=parse_qs(env.get('QUERY_STRING',''))
+        if path=='/' and env['REQUEST_METHOD']=='GET':
+            if not user: return redirect('/login')
+            if 'guide_hint' in cookies and cookies['guide_hint'].value=='1':
+                view.guide_welcome=True
+                headers.append(('Set-Cookie','guide_hint=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'))
         media=re.fullmatch('/media/([a-f0-9]{40})',path)
         if media:
             matches=con.execute('SELECT c.*,ev.creator_id,ev.status,ev.submissions_open,ev.invite_hash FROM candidates c JOIN elections ev ON ev.id=c.election_id WHERE c.image_id=?',(media[1],)).fetchall()
@@ -156,7 +160,8 @@ def dispatch(env,start):
                     if path=='/login': attempt('login:'+phone,success=True)
                 with con:
                     newtoken=secrets.token_hex(32); con.execute('INSERT INTO sessions VALUES(?,?,?)',(newtoken,uid,int(time.time())+7200))
-                headers.append(('Set-Cookie',f'session={newtoken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=7200')); return redirect('/')
+                headers.append(('Set-Cookie',f'session={newtoken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=7200'))
+                headers.append(('Set-Cookie','guide_hint=1; HttpOnly; SameSite=Lax; Path=/; Max-Age=300')); return redirect('/')
             require()
             if path in ('/logout','/switch-account'):
                 with con: con.execute('DELETE FROM sessions WHERE token=?',(token,))
@@ -238,14 +243,14 @@ def dispatch(env,start):
         if path=='/create':
             require(); return response(view.page(t('创建活动','Create event'),view.head(t('创建一场新活动','Create a new event'))+view.event_form(template=scalar(query,'template','custom')),'dashboard'))
         if path=='/my-entries':
-            require(); rows=con.execute('SELECT c.*,ev.title,ev.status,ev.submissions_open FROM candidates c JOIN elections ev ON ev.id=c.election_id WHERE c.submitter_id=? AND c.active=1 AND ev.creator_id<>? ORDER BY c.id DESC',(user['id'],user['id'])).fetchall()
+            require(); rows=con.execute('SELECT c.*,ev.title,ev.status,ev.submissions_open,ev.planned_end FROM candidates c JOIN elections ev ON ev.id=c.election_id WHERE c.submitter_id=? AND c.active=1 AND ev.creator_id<>? ORDER BY c.id DESC',(user['id'],user['id'])).fetchall()
             body=view.head(t('我的作品','My entries'),t('查看审核结果；被驳回的作品可在报名期间修改重交。','Check review results. Rejected entries can be edited and resubmitted while applications are open.'))
             for c in rows:
                 image=f'<img class="submission-thumb" src="/media/{c["image_id"]}" alt="{e(c["name"])}">' if c['image_id'] else ''
                 labels={'PENDING':t('待审核','Pending'),'APPROVED':t('已通过','Approved'),'REJECTED':t('已驳回','Rejected')}
-                edit=link(f'/e/{c["election_id"]}/apply',t('修改并重新提交','Edit and resubmit')) if c['review_status']=='REJECTED' and c['status']=='DRAFT' and c['submissions_open'] else ''
+                edit=link(f'/e/{c["election_id"]}/apply',t('修改并重新提交','Edit and resubmit')) if c['review_status']=='REJECTED' and c['status']=='DRAFT' and c['submissions_open'] and c['planned_end']>time.time() else ''
                 body+=f'<article class="panel submission-card">{image}<div><span class="badge draft">{labels[c["review_status"]]}</span><h3>{e(c["name"])}</h3><p>{e(c["description"])}</p><p class="helper">{e(c["title"])}</p><p>{e(c["review_reason"])}</p>{edit}{link(f"/e/{c['election_id']}",t("查看活动","View event"))}</div></article>'
-            if not rows: body+=f'<div class="empty">{t("暂无报名作品。","No submissions yet.")}</div>'
+            if not rows: body+=f'<div class="empty">{t("暂无报名作品。可先在活动广场找到报名中的活动，或体验演示。","No submissions yet. Find an event accepting entries in Explore, or try a practice.")}<p><button class="btn secondary" type="button" data-practice-open="entrant">{t("体验演示报名","Practise entry submission")}</button></p></div>'
             return response(view.page(t('我的作品','My entries'),body,'my-entries'))
         if path in ('/','/dashboard','/my-votes'):
             if path!='/': require()
@@ -257,19 +262,25 @@ def dispatch(env,start):
             title=t('我的活动','My events') if section=='dashboard' else t('我的投票','My votes') if section=='my-votes' else t('发现值得支持的想法','Discover ideas worth supporting')
             body=view.head(title,t('浏览作品，参与评选。','Explore entries and make your choice.'),link('/create',t('＋ 创建活动','＋ Create event'),'') if user else link('/register',t('注册并参与','Create account'),''))
             if path=='/': body+=f'<section class="hero"><div class="hero-copy"><p class="eyebrow">VOTELAB</p><h2>{t("先看清楚，再做选择。","See the entry. Make your choice.")}</h2><p>{t("单／多选、多数决选、排序或星级评分。","Single / multiple choice, majority, ranked choice and star ratings.")}</p></div><div class="hero-art"><div class="hero-symbol">✦</div></div></section>'
-            if path=='/': body+=view.examples()
+            if path=='/':
+                voting_count=sum(ev['status']=='OPEN' and not ev['paused'] and ev['ends_at']>time.time() for ev in rows)
+                application_count=sum(ev['status']=='DRAFT' and ev['submissions_open'] and ev['planned_end']>time.time() for ev in rows)
+                body+=f'<section class="availability-summary" data-event-availability data-voting-count="{voting_count}" data-application-count="{application_count}">'
+                if not voting_count: body+=f'<p>{t("目前暂无可投票活动。","No events are currently open for voting.")} <button class="text-button" type="button" data-practice-open="voter">{t("体验演示投票","Practise voting")}</button></p>'
+                if not application_count: body+=f'<p>{t("目前暂无可报名活动。","No events are currently accepting entries.")} <button class="text-button" type="button" data-practice-open="entrant">{t("体验演示报名","Practise entry submission")}</button></p>'
+                body+='</section>'+view.examples()
             selected=scalar(query,'status','ALL'); filters=[('ALL',t('全部','All')),('OPEN',t('投票中','Voting')),('ENTRIES',t('报名中','Applications')),('CLOSED',t('已结束','Closed'))]+([('DRAFT',t('草稿','Drafts'))] if path=='/dashboard' else [])
-            tabs=''.join(f'<a class="{"active" if selected==value else ""}" href="{path}?status={value}">{label}</a>' for value,label in filters)
-            body+=f'<div class="toolbar"><div class="tabs">{tabs}</div><input class="search" data-search placeholder="{t("搜索名称或活动编号，如 V000005","Search title or event code, e.g. V000005")}"></div><div class="grid">'; count=0
+            tabs=''.join(f'<a class="{"active" if selected==value else ""}" href="{path}?status={value}" data-event-filter="{value}"'+(' aria-current="page"' if selected==value else '')+f'>{label}</a>' for value,label in filters)
+            body+=f'<section data-event-list><div class="toolbar"><div class="tabs">{tabs}</div><input class="search" data-search placeholder="{t("搜索名称或活动编号，如 V000005","Search title or event code, e.g. V000005")}"></div><div class="grid">'; count=0
             for index,ev in enumerate(rows):
                 phase='ENTRIES' if ev['status']=='DRAFT' and ev['submissions_open'] else ev['status']
-                if selected!='ALL' and selected!=phase: continue
-                count+=1; approved=cs(ev); rnd=rules.current_round(con,ev); votes=con.execute('SELECT COUNT(*) FROM ballots WHERE round_id=?',(rnd['id'],)).fetchone()[0]
+                visible=selected=='ALL' or selected==phase
+                count+=int(visible); approved=cs(ev); rnd=rules.current_round(con,ev); votes=con.execute('SELECT COUNT(*) FROM ballots WHERE round_id=?',(rnd['id'],)).fetchone()[0]
                 photo=next((c['image_id'] for c in approved if c['image_id']),None) if access(ev) else None
                 cover=f'<img class="event-cover-photo" src="/media/{photo}" alt="{e(ev["title"])}" loading="lazy">' if photo else f'<div class="cover tone{index%3}"><span class="glyph">✦</span></div>'
-                body+=f'<article class="event-card" data-title="{e(ev["title"])} {e(ev["tags"])} V{ev["id"]:06d}"><a href="/e/{ev["id"]}">{cover}<div class="card-body">{view.badge(ev)}<h3>{e(ev["title"])}</h3><p>{view.method(ev)}</p><p class="helper">{e(ev["tags"])}</p><p class="helper">V{ev["id"]:06d} · {t("需要邀请码","Invitation required") if ev["invite_hash"] else t("开放参与","Open access")}</p><div class="card-meta"><span>{len(approved)} {t("项作品","entries")}</span><span>{votes} {t("张本轮选票","ballots this round")}</span></div><div class="card-footer">{t("查看活动","View event")} →</div></div></a></article>'
+                body+=f'<article class="event-card" data-phase="{phase}"'+(' hidden' if not visible else '')+f' data-title="{e(ev["title"])} {e(ev["tags"])} V{ev["id"]:06d}"><a href="/e/{ev["id"]}">{cover}<div class="card-body">{view.badge(ev)}<h3>{e(ev["title"])}</h3><p>{view.method(ev)}</p><p class="helper">{e(ev["tags"])}</p><p class="helper">V{ev["id"]:06d} · {t("需要邀请码","Invitation required") if ev["invite_hash"] else t("开放参与","Open access")}</p><div class="card-meta"><span>{len(approved)} {t("项作品","entries")}</span><span>{votes} {t("张本轮选票","ballots this round")}</span></div><div class="card-footer">{t("查看活动","View event")} →</div></div></a></article>'
             body+=f'</div><div data-no-matches class="empty" hidden>{t("没有匹配的活动。","No matching events.")}</div>'
-            if not count: body+=f'<div class="empty">{t("暂无活动。","No events yet.")}</div>'
+            body+=f'<div data-empty-events class="empty"'+(' hidden' if count else '')+f'>{t("暂无活动。","No events yet.")}</div></section>'
             return response(view.page(title,body,section))
         match=re.fullmatch(r'/e/(\d+)(/preview|/edit|/results|/results.csv|/chart.svg|/apply|/review|/revision|/status)?',path)
         if not match: raise Problem('Page not found / 页面不存在。',404)
@@ -296,7 +307,7 @@ def dispatch(env,start):
             body=view.head(t('报名并提交作品','Submit an entry'),e(event['title']))
             if previous: body+=f'<div class="notice error" role="alert">{t("上次驳回原因：","Previous rejection: ")}{e(previous["review_reason"])}</div>'
             name=previous['name'] if previous else ''; desc=previous['description'] if previous else ''
-            body+=f'<form class="panel narrow" method="post" enctype="multipart/form-data">{hidden()}<label class="field">{t("作品名称","Entry name")}<input name="name" maxlength="80" required value="{e(name)}"></label><label class="field">{t("作品图片（可选）","Entry image (optional)")}<input type="file" name="image" accept="image/jpeg,image/png,image/webp" data-image-input><small>JPEG / PNG / WebP · 5 MB</small></label><div class="standalone-preview"></div>'
+            body+=f'<form class="panel narrow" data-entry-application method="post" enctype="multipart/form-data">{hidden()}<label class="field">{t("作品名称","Entry name")}<input name="name" maxlength="80" required value="{e(name)}"></label><label class="field">{t("作品图片（可选）","Entry image (optional)")}<input type="file" name="image" accept="image/jpeg,image/png,image/webp" data-image-input><small>JPEG / PNG / WebP · 5 MB</small></label><div class="standalone-preview"></div>'
             if previous and previous['image_id']: body+=f'<img class="submission-thumb" src="/media/{previous["image_id"]}" alt="{e(name)}"><label class="helper"><input type="checkbox" name="remove_image" value="1">{t("移除旧图","Remove previous image")}</label>'
             body+=f'<label class="field">{t("介绍（可选）","Description (optional)")}<textarea name="description" maxlength="1000" rows="5">{e(desc)}</textarea></label><button class="btn">{t("提交审核","Submit for review")}</button></form>'
             return response(view.page(t('提交作品','Submit entry'),body,'my-entries'))
@@ -389,6 +400,9 @@ def dispatch(env,start):
             for change in changes: body+=f'<p><strong>{view.stamp(change["created"])} · {t("轮次","Round")} {change["round_number"]}</strong><br>{e(change["announcement"])}</p>'
             body+='</details>'
         if own: body+=f'<div class="notice success">✓ {t("投票已成功保存，本轮无需再次提交。","Your ballot is saved. Do not submit again this round.")} (ALREADY_VOTED)</div>'
+        if event['status']=='CLOSED': body+=f'<div class="notice info">{t("活动已结束，不能继续投票或报名。结果是否可见取决于发布状态和权限。","This event has ended. Voting and applications are closed. Results depend on publication and access permissions.")}</div>'
+        elif event['status']=='DRAFT' and not owner(event):
+            body+=f'<div class="notice info">{t("报名已截止，不能再提交作品。投票尚未开始。","The application deadline has passed. Entries cannot be submitted; voting has not started.") if event["planned_end"]<=time.time() else t("当前为作品报名阶段，投票尚未开始。提交作品后需等待审核。","Applications are open; voting has not started. Submitted entries wait for review.") if event["submissions_open"] else t("活动尚未开放投票或报名。","Voting and applications have not opened.")}</div>'
         if event['paused']: body+=f'<div class="notice error">{t("活动正在暂停修改，暂时不能投票。","Voting is paused while the organiser makes changes.")}</div>'
         saved={}
         if own:
@@ -403,7 +417,7 @@ def dispatch(env,start):
         descriptions={'SINGLE':t(f'每人最多选{event["max_choices"]}个不同作品，每个作品加1票。',f'Select up to {event["max_choices"]} different entries; each gets one vote.'),'SCORE':t('可只评部分作品，至少评1项；未评不计为0分，按平均分排名。' if event['score_optional'] else '旧版活动：全部作品必评；结果显示平均分。','Rate at least one entry; skipped entries do not count as zero. Rank by average.' if event['score_optional'] else 'Legacy event: all entries must be rated; results show averages.'),'RCV':t('可只排部分作品；从1开始，不重复、不跳号。计票遇最低票并列时暂停。','Rank any subset from 1 without gaps or duplicates. Lowest-count ties stop counting.'),'MAJORITY':t('每轮选1项；超过本轮有效票50%获胜，否则前两名重新投票。','Choose one each round. More than 50% wins; otherwise the top two need a fresh vote.')}
         body+=f'</form></section><aside class="rule-panel"><div class="panel"><h2>{t("参与规则","Participation rules")}</h2>{view.badge(event)}<ul class="rule-list"><li>{descriptions[event["method"]]}</li><li>{t("当前轮次","Current round")}: {event["current_round"]}</li><li>{t("截止至","Ends at")}: {view.stamp(event["ends_at"] or event["planned_end"])}</li><li>{count} {t("张本轮选票","ballots this round")}</li><li>{t("发布后公开结果","Public results after publication") if event["visibility"]=="PUBLIC" else t("结果仅创建者可见","Creator-only results")}</li></ul>'
         if not user: body+=link('/login',t('登录参与','Log in to participate'),'')
-        if user and not owner(event) and event['status']=='DRAFT' and event['submissions_open']: body+=link(f'/e/{eid}/apply',t('报名并提交作品','Submit an entry'),'')
+        if user and not owner(event) and event['status']=='DRAFT' and event['submissions_open'] and event['planned_end']>time.time(): body+=link(f'/e/{eid}/apply',t('报名并提交作品','Submit an entry'),'')
         if owner(event):
             if event['status']=='DRAFT':
                 pending=sum(c['review_status']=='PENDING' for c in cs(event,True)); body+=f'<p class="helper">{pending} {t("项待审核","pending reviews")}</p><div class="button-row">'+link(f'/e/{eid}/edit',t('返回编辑','Edit event'))+link(f'/e/{eid}/review',t('审核报名','Review entries'))

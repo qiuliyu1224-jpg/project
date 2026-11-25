@@ -28,7 +28,7 @@ class LocalTools:
             if path == '/' and env.get('REQUEST_METHOD') == 'GET' and supplied:
                 if not same_host or not hmac.compare_digest(supplied.encode(), self.token.encode()):
                     start('403 Forbidden', [('Content-Type', 'text/plain')]); return [b'Invalid local launch.']
-                start('303 See Other', [('Location', '/?lang=en'), ('Cache-Control', 'no-store'),
+                start('303 See Other', [('Location', '/?lang='+query['lang'][0] if query.get('lang',[''])[0] in ('en','zh') else '/'), ('Cache-Control', 'no-store'),
                     ('Referrer-Policy', 'no-referrer'),
                     ('Set-Cookie', f'votelab_operator={self.token}; HttpOnly; SameSite=Strict; Path=/')])
                 return [b'']

@@ -2,17 +2,28 @@
 
 Local Python + SQLite voting and entry-evaluation prototype.
 
-[Download VoteLab 0.4.8 for Windows or macOS](https://github.com/qiuliyu1224-jpg/project/releases/tag/votelab-v0.4.8-team-test).
-Quit the previous VoteLab process before upgrading; keep the existing data folder.
+Current version: **0.4.10**.
 
-0.4.8 adds a warm ivory/walnut interface, large local artwork, two five-step guides,
-star/submit feedback and a small ended-event dialog. It retains the original
-general-purpose voting rules, local data, backups, restore, exports and revotes.
+[Download Windows, Apple Silicon or Intel Mac](https://github.com/qiuliyu1224-jpg/project/releases/tag/votelab-v0.4.10-team-test).
+The release is published only after all three native builds and checks succeed.
+Safely quit the running older VoteLab before upgrading, and keep the data folder.
 
-Project development tools: `npm ci`, `npm run browser:install`,
-`npm run tools:check`, `npm run test:ui`. Playwright/FFmpeg are pinned in the root
-package files; they are not required by users of the native ZIP packages.
+The home page has one complete interactive entry-evaluation demo and two display
+examples. The demo includes local images, optional ratings, review, editing,
+temporary submission/results and restart. The guide and empty list open the same
+demo. Demo actions never enter real events or ballot records.
 
-See [0.4.8 details](voting-system/docs/VERSION_048.md) and
-[source/project notes](voting-system/README.md). This is a local classroom
-prototype, without cloud sharing or real SMS verification.
+Login, language controls on auth and workspace pages, independent entry practice,
+real voting/review, backups, exports and stable list filters remain.
+
+For development, install voting-system/requirements.txt and run
+`python voting-system/run_votelab.py`. Native ZIP packages include their runtime.
+
+Checks: `npm ci`, `npm run browser:install`, `npm run tools:check`,
+`npm run test:ui`, `npm run test:onboarding`, `npm run test:demo`,
+`npm run test:filters`. These use disposable test data. Playwright/FFmpeg are
+development tools, not user requirements for the packaged application.
+
+See [0.4.10 changes and validation](voting-system/docs/VERSION_0410.md),
+[source notes](voting-system/README.md). This classroom prototype does not provide
+cloud sharing or real SMS identity verification.

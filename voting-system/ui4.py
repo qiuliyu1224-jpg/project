@@ -19,9 +19,13 @@ class View(Base):
         page=re.sub(r'(<a[^>]+href="([^"]+)"[^>]*><span class="nav-icon">).*?(</span>)',lambda m:m[1]+icon(navicons.get(m[2],'explore'))+m[3],page)
         page=page.replace('<span class="brand-mark">V</span>',f'<span class="brand-mark">{icon("ballot")}</span>')
         page=page.replace('<div class="top-actions">','<div class="top-actions">'+guide,1)
-        page=page.replace('<body>',f'<body data-authenticated="{int(bool(self.user))}">')
+        auth_page=self.path in ('/login','/register','/reset')
+        page=page.replace('<body>',f'<body data-authenticated="{int(bool(self.user))}" data-auth-page="{int(auth_page)}" data-guide-user="{self.user["id"] if self.user else "guest"}">')
+        if getattr(self,'guide_welcome',False) and self.user:
+            hint=f'<aside class="guide-hint" data-guide-hint role="status"><strong>{self.t("第一次使用？操作指南在这里。","First time here? Your quick guide is here.")}</strong><p>{self.t("投票、创建活动、报名作品，随时查看，不必实际提交。","Learn to vote, create events or submit entries. No real submission is needed.")}</p><button class="text-button" type="button" data-guide-open>{self.t("查看指南","View guide")}</button><button class="text-button" type="button" data-dismiss-hint>{self.t("知道了","Got it")}</button></aside>'
+            page=page.replace('</header><main>','</header>'+hint+'<main>',1)
         page=page.replace('</head>','<link rel="stylesheet" href="/static/refined.css"></head>')
-        return page.replace('<script defer src="/static/app.js"></script>','<script defer src="/static/app.js"></script><script defer src="/static/v4.js"></script><script defer src="/static/experience.js"></script>').replace('VoteLab<small>03</small>',f'VoteLab<small>{VERSION}</small>')
+        return page.replace('<script defer src="/static/app.js"></script>','<script defer src="/static/app.js"></script><script defer src="/static/v4.js"></script><script defer src="/static/experience.js"></script><script defer src="/static/guide.js"></script><script defer src="/static/demo.js"></script>').replace('VoteLab<small>03</small>',f'VoteLab<small>{VERSION}</small>')
 
     def method(self,event):
         return self.t(*METHODS[event['method']])
@@ -75,8 +79,15 @@ class View(Base):
     def examples(self):
         t=self.t
         examples=[('entries',t('作品评选','Entry evaluation'),t('星级评分','Star rating'),t('对提交的作品进行评价与选择。','Evaluate and compare submitted work.'),'photo','image'),('choice',t('方案投票','Proposal voting'),t('单／多选','Single / multiple choice'),t('就多个备选方案进行投票表决。','Choose between alternative proposals.'),'choice','check'),('projects',t('项目展示','Project showcase'),t('排序投票','Ranked-choice voting'),t('为候选项目排序，表达偏好。','Rank projects to express your preferences.'),'custom','calendar')]
-        cards=''.join(f'<article class="example-card"><div class="example-copy"><span class="eyebrow">{t("演示示例","Illustrative example")}</span><h3>{name}</h3><p class="example-method">{icon(symbol)}{method}</p><p class="helper">{desc}</p></div><img src="/static/assets/example-{key}.webp" alt="" loading="lazy"><button type="button" class="example-action" data-guide-open data-guide-role="creator" data-guide-template="{template}">{t("了解如何创建","How to create")} {icon("arrow")}</button></article>' for key,name,method,desc,template,symbol in examples)
-        return f'<section class="demo-example" data-demo-example><div class="example-grid">{cards}</div><p class="helper">{t("以上仅为活动类型示例，不是真实活动或投票结果。本地安装包在每台电脑上各自保存数据。","These illustrate activity types, not real events or results. Local packages store separate data on each computer.")}</p><details class="helper"><summary>{t("本地活动能否跨设备共享？","Can local activities be shared across devices?")}</summary><p>{t("若将来提供共享部署，参与者需打开同一共享网址。当前本地安装包在每台电脑上各自保存数据，不会自动同步。","A shared deployment would require the same shared website address for all participants. Current local packages store separate data on each computer and do not automatically sync.")}</p></details></section>'
+        cards=''
+        for key,name,method,desc,template,symbol in examples:
+            live=key=='entries'
+            label=t('可操作演示','Interactive demo') if live else t('展示示例','Display example')
+            detail=t('体验评分、核对、演示提交与结果。','Try rating, review, demo submission and results.') if live else desc
+            trigger='data-vote-demo-open' if live else f'data-example-info="{key}"'
+            action=t('进入演示体验','Try the interactive demo') if live else t('查看示例说明','View example details')
+            cards+=f'<article class="example-card {"example-interactive" if live else ""}"><div class="example-copy"><span class="example-kind">{label}</span><h3>{name}</h3><p class="example-method">{icon(symbol)}{method}</p><p class="helper">{detail}</p></div><img src="/static/assets/example-{key}.webp" alt="{name}" loading="lazy"><button type="button" class="example-action" {trigger}>{action} {icon("arrow")}</button></article>'
+        return f'<section class="demo-example" data-demo-example><div class="example-grid">{cards}</div><p class="helper">{t("作品评选可操作；方案投票、项目展示保留为展示示例。演示记录不计入正式活动。本地安装包在每台电脑上各自保存数据。","Entry evaluation is interactive; proposal voting and project showcase are display examples. Demo records never enter real events. Local packages store separate data on each computer.")}</p><noscript><p class="notice">{t("示例体验需要启用 JavaScript；正式活动仍可通过页面链接使用。","Enable JavaScript to try the examples. Real event pages remain available through ordinary links.")}</p></noscript><details class="helper"><summary>{t("本地活动能否跨设备共享？","Can local activities be shared across devices?")}</summary><p>{t("若将来提供共享部署，参与者需打开同一共享网址。当前本地安装包在每台电脑上各自保存数据，不会自动同步。","A shared deployment would require the same shared website address for all participants. Current local packages store separate data on each computer and do not automatically sync.")}</p></details></section>'
 
     def cards(self,event,candidates,interactive,selected=None):
         t=self.t; selected=selected or {}; out='<div class="candidate-grid">'

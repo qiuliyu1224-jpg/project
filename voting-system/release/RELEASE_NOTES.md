@@ -1,3 +1,55 @@
+# VoteLab 0.4.10 — One complete interactive demo
+
+- Entry evaluation is interactive. Proposal voting and project showcase remain
+  clearly labeled display examples with explanation windows.
+- Large home-card buttons, three illustrated entries, image enlargement and fallback.
+- Rate, review, edit, submit a demo ballot, view results and restart.
+  At least one rating is required. Zero is valid; skipped entries are not zero.
+- Demo state is temporary browser memory. No business POST, real event,
+  personal ballot, result total or export is created or changed.
+- Home, empty-list practice and the voting guide open the same demo. Guides can
+  finish without actions. Closing the demo preserves the original unsaved form.
+- Refreshing, closing or restarting clears only demo progress. No preset votes.
+- Both language controls remain. New content supports English and Chinese.
+- Existing voting, review, backup, export and stable list filters remain.
+
+Upgrade: choose Local data & upgrades > Quit VoteLab safely in the older version,
+extract the new ZIP to a new folder, then double-click Start VoteLab (Windows)
+or VoteLab.app (Mac).
+Keep the existing data folder. Closing the browser alone does not quit the app.
+
+Release packages are built on native Windows and macOS runners. Publication
+requires all three builds and their automatic checks to succeed. macOS packages
+are not notarised; see the included Mac first-run instructions.
+Earlier release notes below are historical, not this version's instructions.
+
+---
+
+# VoteLab 0.4.9 — Optional onboarding and safe practice
+
+- Follow-up: switching Voting / Applications / Closed now filters in place,
+  preserves search and page position, and supports browser Back.
+- Guests start on the sign-in screen; valid sessions enter Explore directly.
+- Language switching stays on login, registration and in the workspace. New browsers
+  default to English; desktop reopening preserves the deliberate language selection.
+- A dismissible first-entry hint points to Quick guide, remembered per account in this browser.
+- Three five-step guides: vote, create an event, submit an entry. Every explanation
+  can be read or finished without entering, saving, submitting or opening a real event.
+- Empty event lists offer optional voting and entry-submission practice. Practice
+  stays in browser memory, previews images locally, makes no business POST and
+  never adds events, entries, images, ballots or scores to the database.
+- Application deadlines have explicit feedback and no stale apply/resubmit link.
+- Authenticated older-instance conflicts explain how to quit safely. Windows desktop
+  startup displays an actionable bilingual dialog; detailed errors stay in launcher.log.
+- Existing star/submit animations, voting rules, results, exports and backups remain.
+
+Upgrade: safely quit the known running older VoteLab, extract the new ZIP, then launch.
+Keep the user data directory. Closing a browser does not stop the background process.
+No cloud sharing, real SMS, automatic migration of activities between computers or
+automatic shutdown of another running version is introduced.
+
+---
+
 # VoteLab 0.4.8 — Interface and guided workflows
 
 - Warm ivory/walnut UI, local voting illustrations and large photographic covers.

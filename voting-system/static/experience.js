@@ -6,12 +6,6 @@
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,reduced?0:ms));
   const query=s=>document.querySelector(s);
-  const key='votelab-guide-v1';
-  const read=()=>{try{return JSON.parse(sessionStorage.getItem(key)||'null');}catch(_){return null;}};
-  const save=value=>{try{value?sessionStorage.setItem(key,JSON.stringify(value)):sessionStorage.removeItem(key);}catch(_){/* Guidance still works without browser storage. */}};
-  let tour=read(),panel=null,highlight=null,origin=null;
-  if(!tour||!['creator','voter'].includes(tour.role)||!Number.isInteger(tour.step)||tour.step<0||tour.step>4)tour=null;
-  if(tour&&!['photo','choice','custom'].includes(tour.template))tour.template='custom';
 
   function notice(message,uncertain=false){
     let dialog=query('#ux-notice');
@@ -125,75 +119,4 @@
     });
   }
 
-  function clearTarget(){if(highlight)highlight.classList.remove('tour-target');highlight=null;}
-  function closeTour(){save(null);tour=null;clearTarget();panel?.remove();panel=null;if(origin?.isConnected)origin.focus();}
-  function ensurePanel(){
-    if(panel)return;
-    panel=document.createElement('section');panel.className='ux-guide';panel.setAttribute('role','region');panel.setAttribute('aria-label',t('5步操作指南','5-step guide'));document.body.append(panel);
-  }
-  function focusTarget(selector,scroll=false){
-    clearTarget();if(!selector)return;
-    const targets=[...document.querySelectorAll(selector)];highlight=targets.find(el=>el.getClientRects().length);
-    if(!highlight)return;highlight.classList.add('tour-target');
-    if(scroll)highlight.scrollIntoView({behavior:reduced?'instant':'smooth',block:'center'});
-  }
-  function go(path){save(tour);location.assign(path);}
-  function chooseRole(){
-    clearTarget();ensurePanel();panel.classList.remove('guide-at-top');
-    panel.innerHTML='<header><span>'+t('VOTELAB · 操作指南','VOTELAB · QUICK GUIDE')+'</span><button type="button" class="tour-close" aria-label="'+t('关闭指南','Close guide')+'">×</button></header><h2 tabindex="-1">'+t('你想做什么？','What would you like to do?')+'</h2><p>'+t('选一个目标，跟着5步找到实际按钮。随时可以关闭或重新开始。','Choose a goal. Five steps point to real controls. You can close or restart at any time.')+'</p><div class="tour-role"><button type="button" class="btn" data-role="voter">'+t('我要参与投票','I want to vote')+'</button><button type="button" class="btn secondary" data-role="creator">'+t('我要创建活动','I want to create an event')+'</button></div>';
-    panel.querySelector('.tour-close').onclick=closeTour;
-    panel.querySelectorAll('[data-role]').forEach(button=>button.onclick=()=>{tour={role:button.dataset.role,step:0,template:'custom'};save(tour);renderTour(true);});
-    panel.querySelector('h2').focus();
-  }
-  function renderTour(scroll=false){
-    if(!tour)return;
-    ensurePanel();
-    const authenticated=document.body.dataset.authenticated==='1';
-    const eventPath=/^\/e\/\d+(?:\/preview)?$/.test(location.pathname);
-    const isConfirm=!!final,saved=!!query('.notice.success'),open=!!query('[data-event-status][data-state="OPEN"]');
-    if(tour.role==='voter'&&tour.step===1&&(eventPath||isConfirm))tour.step=2;
-    if(tour.role==='voter'&&tour.step===3&&saved)tour.step=4;
-    if(tour.role==='creator'&&tour.step===2&&location.pathname.endsWith('/preview'))tour.step=3;
-    if(tour.role==='creator'&&tour.step===3&&eventPath&&open)tour.step=4;
-    save(tour);
-    let title='',body='',target='',action=null,label=t('下一步','Next'),disabled=false;
-    const next=()=>{tour.step=Math.min(4,tour.step+1);save(tour);renderTour(true);};
-    action=next;
-    if(tour.step===0){
-      title=t('登录你的账号','Sign in to your account');
-      body=authenticated?t('你已登录。一个账号可以创建活动、提交作品和投票。','You are signed in. One account can create, submit entries and vote.'):t('先注册或登录。课程演示验证码会显示在页面，不会发送短信。','Register or log in first. Demo codes appear on screen; no SMS is sent.');
-      target=authenticated?'.brand':'form[action="/login"],form[action="/register"],a[href="/login"]';
-      if(!authenticated){label=t('打开登录页','Open login');action=()=>go('/login');}
-    }else if(tour.role==='voter'){
-      if(tour.step===1){title=t('找到要参加的活动','Find your event');body=t('在活动广场搜索名称或编号，再打开一场投票中的活动。需要邀请码时，向发起者获取。','Search Explore by title or event code, then open an event with voting open. Ask the organiser for any required invitation code.');target='.toolbar,.grid';label=t('定位活动列表','Show event list');action=()=>location.pathname==='/'?focusTarget('.toolbar,.grid',true):go('/');}
-      if(tour.step===2){
-        title=t('选择、评分或排序','Choose, rate or rank');body=t('按活动规则操作。星级评分可用0分；未评分不等于0分。这里只选择，还没有保存选票。','Follow the event rules. Zero is a valid rating; skipping is different. Choosing here does not save a ballot.');target='[data-ballot] .candidate-grid';
-        const form=query('[data-ballot]');const method=form?.dataset.method;
-        disabled=!form||!form.querySelector('input[name="candidate"]:checked,input[name^="score_"]:checked,select[name^="rank_"] option:checked:not([value=""])');
-        if(isConfirm){disabled=false;target='[data-final-ballot]';}
-      }
-      if(tour.step===3){title=t('核对，再确认提交','Review, then confirm');body=isConfirm?t('检查这页的选择，再点击“确认提交”。指南不会替你投票。','Check this summary, then use Confirm and submit. The guide never votes for you.'):t('点击页面上的“核对选票”，检查后再确认提交。核对页面本身不会计票。','Use Review ballot on the page, check the summary, then confirm. Reviewing alone saves no vote.');target=isConfirm?'[data-final-ballot] button':'[data-ballot] .sticky-actions';label=t('定位操作按钮','Show the button');action=()=>focusTarget(target,true);}
-      if(tour.step===4){title=t('确认保存与查看结果','Check your saved ballot');body=t('看到“投票已成功保存”才算完成。可以在“我的投票”找回活动；结束且结果可见时再查看统计。','The saved-ballot message confirms completion. Find the event in My votes; view results after voting closes when access permits.');target='.notice.success,a[href="/my-votes"]';label=t('完成指南','Finish guide');action=closeTour;}
-    }else{
-      if(tour.step===1){title=t('设置活动规则','Set the event rules');body=t('填写名称，选择投票方式、截止时间与结果权限。截止时间按北京时间UTC+8。','Enter a title, choose the voting method, deadline and result visibility. Deadlines use Beijing time, UTC+8.');target='[data-event-form]';if(!query('[data-event-form]')){label=t('打开创建页面','Open event builder');action=()=>go('/create?template='+tour.template);}}
-      if(tour.step===2){title=t('添加作品并保存预览','Add entries and preview');body=t('填写作品名称，图片可选。点击页面的“保存并预览”。若开放报名，开票前需至少2项通过且没有待审核作品。','Add entry names and optional images, then use Save and preview. Application events need at least two approved entries and no pending reviews before voting.');target='[data-entry-list],[data-event-form] .sticky-actions';label=t('定位保存按钮','Show save button');action=()=>focusTarget('[data-event-form] .sticky-actions',true);}
-      if(tour.step===3){title=t('检查后开始投票','Check and open voting');body=t('核对预览。需要报名时先开放报名并审核；准备好后点击“确认设置并开始投票”。指南不会自动开票。','Check the preview. Open applications and review entries if needed, then use Confirm settings and start voting. The guide does not open voting automatically.');target='form[action$="/open"],a[href$="/review"]';label=t('定位开始按钮','Show start button');action=()=>focusTarget(target,true);}
-      if(tour.step===4){title=t('管理活动与查看结果','Manage the event and results');body=t('活动已开启，可在“我的活动”找回。投票结束后查看结果、导出图表；遇平票可按提示发起加赛。','Voting is open. Find it in My events. After voting ends, view results, export charts or explicitly start a revote for unresolved ties.');target='.rule-panel,a[href="/dashboard"]';label=t('完成指南','Finish guide');action=closeTour;}
-    }
-    panel.classList.toggle('guide-at-top',tour.step===3);
-    panel.innerHTML='<header><span>'+t(tour.role==='voter'?'参与投票':'创建活动',tour.role==='voter'?'VOTE':'CREATE AN EVENT')+' · '+(tour.step+1)+' / 5</span><button type="button" class="tour-close" aria-label="'+t('关闭指南','Close guide')+'">×</button></header><div class="tour-progress" aria-hidden="true">'+[0,1,2,3,4].map(i=>'<span class="'+(i<=tour.step?'filled':'')+'"></span>').join('')+'</div><h2 tabindex="-1">'+title+'</h2><p>'+body+'</p><footer><button class="text-button" data-tour-restart type="button">'+t('重新选择','Change goal')+'</button>'+(tour.step?'<button class="btn secondary" data-tour-back type="button">'+t('上一步','Back')+'</button>':'')+'<button class="btn" data-tour-next type="button" '+(disabled?'disabled':'')+'>'+label+'</button></footer>';
-    panel.querySelector('.tour-close').onclick=closeTour;
-    panel.querySelector('[data-tour-restart]').onclick=()=>{save(null);tour=null;chooseRole();};
-    panel.querySelector('[data-tour-back]')?.addEventListener('click',()=>{tour.step--;save(tour);renderTour(true);});
-    panel.querySelector('[data-tour-next]').onclick=action;
-    focusTarget(target,scroll);if(scroll)panel.querySelector('h2').focus({preventScroll:true});
-  }
-  document.addEventListener('click',event=>{
-    const button=event.target.closest('[data-guide-open]');if(!button)return;
-    origin=button;
-    if(button.dataset.guideRole){tour={role:button.dataset.guideRole,step:0,template:button.dataset.guideTemplate||'custom'};save(tour);renderTour(true);}else chooseRole();
-  });
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&panel&&!query('#ux-notice[open]'))closeTour();});
-  document.addEventListener('change',event=>{if(tour&&tour.step===2&&event.target.closest('[data-ballot]'))renderTour();});
-  if(tour)renderTour();
 })();

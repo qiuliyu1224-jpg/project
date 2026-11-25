@@ -27,9 +27,16 @@ def create(title,method='SCORE'):
     eid=int(headers['Location'].split('/')[2]);assert owner.post(f'/e/{eid}/open',{})[0]==303
     return eid
 
-score=create('Sample entry evaluation')
-closing=create('Sample closing event','SINGLE')
-failure=create('Sample submission recovery')
+empty='--empty' in sys.argv
+score=None if empty else create('Sample entry evaluation')
+closing=None if empty else create('Sample closing event','SINGLE')
+failure=None if empty else create('Sample submission recovery')
+application=None
+if '--filters' in sys.argv:
+    assert owner.post(f'/e/{closing}/close',{})[0]==303
+    form={'title':'Sample application event','method':'SCORE','visibility':'PUBLIC','submissions_open':'1','deadline':datetime.fromtimestamp(time.time()+86400,entries.TZ).strftime('%Y-%m-%dT%H:%M')}
+    status,body,headers=owner.post('/create',form);assert status==303,body
+    application=int(headers['Location'].split('/')[2]);assert owner.post(f'/e/{application}/collect',{})[0]==303
 state={'score':score,'closing':closing,'failure':failure,'owner':owner.cookies,'voter':voter.cookies,'other':other.cookies}
 (folder/'fixture.json').write_text(json.dumps(state),encoding='utf-8')
 os.environ['VOTELAB_DATA_DIR']=str(folder)

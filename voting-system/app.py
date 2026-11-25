@@ -14,7 +14,7 @@ from urllib.parse import parse_qs
 from demo_server import create_server
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '0.4.8'
+VERSION = '0.4.10'
 DB = Path(os.environ.get('VOTING_DB', str(ROOT / 'data' / 'voting.sqlite3')))
 CSRF_KEY = secrets.token_bytes(32)  # restarting invalidates open forms, not stored ballots
 

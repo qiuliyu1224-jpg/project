@@ -229,7 +229,7 @@ class LocalToolsTests(unittest.TestCase):
         self.assertEqual(self.request('/?local=bad')[0]['status'],403)
         self.assertEqual(self.request('/?local='+'a'*48,host='attacker.example:8765')[0]['status'],403)
         meta,_=self.request('/?local='+'a'*48)
-        self.assertEqual(meta['status'],303); self.assertEqual(meta['headers']['Location'],'/?lang=en')
+        self.assertEqual(meta['status'],303); self.assertEqual(meta['headers']['Location'],'/')
         self.assertIn('HttpOnly',meta['headers']['Set-Cookie'])
     def test_tools_backup_and_forged_restore_are_distinct_from_account_access(self):
         cookie='votelab_operator='+'a'*48

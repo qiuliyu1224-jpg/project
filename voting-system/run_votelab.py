@@ -23,7 +23,8 @@ from urllib.request import build_opener, HTTPRedirectHandler, ProxyHandler, Requ
 
 STARTUP_LOG = logging.getLogger('votelab.launcher')
 INSTANCE_PATH = '/_votelab/instance'
-APP_VERSION = '0.4.8'
+APP_VERSION = '0.4.10'
+SHOW_STARTUP_DIALOG = False
 
 
 class StartupProblem(RuntimeError):
@@ -84,7 +85,7 @@ def launcher_status_app(application, token):
     return dispatch
 
 
-def find_running_instance(data_dir, timeout=4):
+def find_running_instance(data_dir, timeout=4, *, details=False):
     """Never mistake a different local app (or a stale state file) for VoteLab."""
     deadline = time.monotonic() + timeout
     opener = build_opener(ProxyHandler({}), NoProbeRedirect())
@@ -101,8 +102,11 @@ def find_running_instance(data_dir, timeout=4):
                                   headers={'X-VoteLab-Instance': token})
                 with opener.open(request, timeout=.5) as response:
                     result = json.loads(response.read(1024))
-                    if response.status == 200 and result == {'application': 'VoteLab', 'token': token, 'version': APP_VERSION}:
-                        return address
+                    if response.status == 200 and isinstance(result,dict) and result.get('application')=='VoteLab' and result.get('token')==token:
+                        if details and isinstance(result.get('version'),str) and len(result['version'])<40:
+                            return {'address':address,'version':result['version']}
+                        if result == {'application': 'VoteLab', 'token': token, 'version': APP_VERSION}:
+                            return address
         except (OSError, ValueError, KeyError, TypeError):
             pass
         if time.monotonic() >= deadline:
@@ -123,21 +127,30 @@ def write_running_instance(data_dir, port, token):
 
 
 def open_browser(address, local_token=None):
-    # Each double-click starts at the English UI, even with a legacy lang=zh
-    # cookie. The instance identity continues to use its canonical base URL.
-    startup_address = address + '?lang=en'
+    # New browsers default to English. Preserve a deliberate language cookie.
+    startup_address = address
     if local_token:
-        startup_address += '&local=' + local_token
+        startup_address += '?local=' + local_token
     try:
         if not webbrowser.open(startup_address):
-            STARTUP_LOG.warning('Open this address manually: %s', address + '?lang=en')
+            STARTUP_LOG.warning('Open this address manually: %s', address)
     except Exception:
-        STARTUP_LOG.exception('Browser launch failed; open %s manually.', address + '?lang=en')
+        STARTUP_LOG.exception('Browser launch failed; open %s manually.', address)
 
 
 def report_startup_failure(error):
     STARTUP_LOG.exception('VoteLab could not start.')
-    logging.exception('VoteLab could not start. See the operating instructions for help.')
+    if isinstance(error,StartupProblem):
+        logging.error('%s',error)
+    else:
+        logging.exception('VoteLab could not start. See the operating instructions for help.')
+    if sys.platform == 'win32' and SHOW_STARTUP_DIALOG:
+        detail=str(error) if isinstance(error,StartupProblem) else 'Please check launcher.log for details.\n请查看 launcher.log 中的错误详情。'
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None,detail,'VoteLab — Startup help / 启动提示',0x40)
+        except (AttributeError,OSError):
+            STARTUP_LOG.warning('Startup dialog unavailable.')
     if sys.platform == 'darwin' and getattr(sys, 'frozen', False):
         detail = str(error) if isinstance(error, StartupProblem) else 'Please check the startup log for the error details.'
         message = detail + '\n\nStartup log: ' + str(user_data_directory() / 'launcher.log')
@@ -184,11 +197,13 @@ def user_data_directory():
 
 
 def main():
+    global SHOW_STARTUP_DIALOG
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--backup-only', action='store_true')
     args = parser.parse_args()
+    SHOW_STARTUP_DIALOG = not (args.no_browser or args.backup_only)
     if not 0 <= args.port <= 65535:
         parser.error('port must be between 0 and 65535')
 
@@ -201,11 +216,18 @@ def main():
                                  'Quit VoteLab before using --backup-only.')
         address = find_running_instance(data_dir)
         if not address:
+            instance=find_running_instance(data_dir,timeout=0,details=True)
+            if instance:
+                raise StartupProblem(f'VoteLab {instance["version"]} is already running. This copy is {APP_VERSION}.\n'
+                    f'Open {instance["address"]}, then choose Local data & upgrades > Quit VoteLab safely. '
+                    'After it stops, open the new version again. Closing the browser alone does not stop VoteLab. Your data is retained.\n\n'
+                    f'旧版 VoteLab {instance["version"]} 仍在运行，当前启动的是 {APP_VERSION}。\n'
+                    f'打开 {instance["address"]}，选择“本机数据与升级”→“安全退出 VoteLab”，再启动新版。'
+                    '只关闭网页不会退出后台。账号、活动和选票会保留。')
             raise StartupProblem('VoteLab is already starting or running for this data folder. '
-                                 'An older VoteLab version may still be running. '
-                                 'Wait a moment and open it again. If it remains unresponsive, '
-                                 'quit the known VoteLab process in Activity Monitor (Mac) '
-                                 'or Task Manager (Windows) before retrying.')
+                                 'Wait a moment and retry. If it remains unresponsive, quit only the known VoteLab process in Activity Monitor (Mac) or Task Manager (Windows). '
+                                 'Do not delete the data folder.\n\n'
+                                 'VoteLab 正在启动或后台尚未退出。请稍等后重试；若仍无响应，仅退出已确认的 VoteLab 进程，不要删除数据文件夹。')
         message = f'VoteLab is already running at {address}'
         STARTUP_LOG.info(message)
         print(message, flush=True)

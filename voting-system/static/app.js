@@ -3,7 +3,30 @@ const say=(zh,en)=>chinese?zh:en;
 document.querySelectorAll('[data-language]').forEach(select=>select.addEventListener('change',()=>select.form.requestSubmit()));
 document.querySelectorAll('[data-go-back]').forEach(button=>button.addEventListener('click',()=>history.back()));
 const search=document.querySelector('[data-search]');
-if(search)search.addEventListener('input',()=>{let shown=0;document.querySelectorAll('[data-title]').forEach(card=>{const hit=card.dataset.title.toLowerCase().includes(search.value.toLowerCase());card.hidden=!hit;if(hit)shown++;});const empty=document.querySelector('[data-no-matches]');if(empty)empty.hidden=shown>0;});
+const eventList=document.querySelector('[data-event-list]');
+if(eventList){
+    const tabs=[...eventList.querySelectorAll('[data-event-filter]')];
+    const cards=[...eventList.querySelectorAll('[data-title]')];
+    // Keep enough space below the controls so an empty result cannot clamp scroll.
+    const keepPosition=()=>eventList.style.minHeight=Math.max(parseFloat(eventList.style.minHeight)||0,innerHeight-eventList.getBoundingClientRect().top)+'px';
+    const applyFilter=()=>{
+        const phase=new URL(location.href).searchParams.get('status')||'ALL';
+        const term=search.value.toLowerCase();let eligible=0,shown=0;
+        cards.forEach(card=>{const matchesPhase=phase==='ALL'||card.dataset.phase===phase;if(matchesPhase)eligible++;const hit=matchesPhase&&card.dataset.title.toLowerCase().includes(term);card.hidden=!hit;if(hit)shown++;});
+        tabs.forEach(tab=>{const active=tab.dataset.eventFilter===phase;tab.classList.toggle('active',active);if(active)tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current');});
+        eventList.querySelector('[data-no-matches]').hidden=eligible===0||shown>0;
+        eventList.querySelector('[data-empty-events]').hidden=eligible>0;
+    };
+    tabs.forEach(tab=>tab.addEventListener('click',event=>{
+        if(event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+        event.preventDefault();keepPosition();
+        if(new URL(tab.href).href!==location.href)history.pushState(null,'',tab.href);
+        applyFilter();
+    }));
+    search.addEventListener('input',()=>{keepPosition();applyFilter();});
+    window.addEventListener('popstate',()=>{keepPosition();applyFilter();});
+    applyFilter();
+}else if(search)search.addEventListener('input',()=>{let shown=0;document.querySelectorAll('[data-title]').forEach(card=>{const hit=card.dataset.title.toLowerCase().includes(search.value.toLowerCase());card.hidden=!hit;if(hit)shown++;});const empty=document.querySelector('[data-no-matches]');if(empty)empty.hidden=shown>0;});
 document.querySelectorAll('.stars').forEach(group=>{const update=()=>{const chosen=group.querySelector('input:checked');const note=group.parentElement.querySelector('.selected-note');if(chosen&&note)note.textContent=chosen.value+' / 5 · '+say('已评分','Rated');group.querySelectorAll('.star-choice').forEach(label=>{const value=Number(label.querySelector('input').value);label.classList.toggle('is-selected',Boolean(chosen&&value>0&&value<=Number(chosen.value)));});};group.addEventListener('change',update);update();});
 document.querySelectorAll('[data-confirm]').forEach(form=>form.addEventListener('submit',event=>{if(!confirm(form.dataset.confirm))event.preventDefault();}));
 let entrySerial=0;

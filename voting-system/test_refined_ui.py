@@ -18,7 +18,9 @@ class RefinedViewTests(unittest.TestCase):
             self.assertIn(name,page)
         self.assertNotIn('Campus photography competition',page)
         self.assertNotIn('/create',page) # The guide never automatically creates events.
-        self.assertIn('not real events or results',page)
+        self.assertIn('Demo records never enter real events',page)
+        self.assertEqual(page.count('data-vote-demo-open'),1)
+        self.assertEqual(page.count('data-example-info='),2)
     def test_artwork_and_scripts_are_local_public_assets(self):
         client=Client('en')
         for name in ('hero-vote','login-vote','example-entries','example-choice','example-projects'):
@@ -26,7 +28,7 @@ class RefinedViewTests(unittest.TestCase):
             self.assertEqual(status,200)
             self.assertEqual(headers['Content-Type'],'image/webp')
             self.assertEqual(client.last_raw[:4],b'RIFF')
-        for name in ('refined.css','experience.js'):
+        for name in ('refined.css','experience.js','guide.js','demo.js'):
             self.assertEqual(client.request('/static/'+name)[0],200)
 
 if __name__=='__main__':unittest.main()

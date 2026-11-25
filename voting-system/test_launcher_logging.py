@@ -33,11 +33,11 @@ class LauncherLoggingTests(unittest.TestCase):
                     response.read.return_value = json.dumps(result).encode()
                     self.assertEqual(find_running_instance(data, timeout=0), expected)
 
-    def test_desktop_launch_opens_english_home_even_for_existing_browser(self):
+    def test_desktop_launch_preserves_deliberate_browser_language(self):
         from run_votelab import open_browser
         with patch('run_votelab.webbrowser.open', return_value=True) as browser:
             open_browser('http://127.0.0.1:8765/')
-        browser.assert_called_once_with('http://127.0.0.1:8765/?lang=en')
+        browser.assert_called_once_with('http://127.0.0.1:8765/')
 
     def run_failure(self, root, *, import_failure=False):
         data = root / 'data'

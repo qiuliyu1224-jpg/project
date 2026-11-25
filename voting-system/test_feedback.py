@@ -190,15 +190,18 @@ class FeedbackTests(unittest.TestCase):
         for language in ('zh', 'en'):
             client = Client(language)
             for _ in range(2):
-                status, page, _ = client.request('/')
-                self.assertEqual(status, 200)
+                status, _, headers = client.request('/')
+                self.assertEqual(status, 303)
+                self.assertEqual(headers['Location'], '/login')
+                page = View(language, 'test', None).examples()
                 self.assertIn('data-demo-example', page)
-                self.assertIn('演示示例' if language == 'zh' else 'Illustrative example', page)
+                self.assertIn('可操作演示' if language == 'zh' else 'Interactive demo', page)
+                self.assertIn('展示示例' if language == 'zh' else 'Display example', page)
                 self.assertTrue(all(value == 0 for value in self.business_counts().values()))
 
     def test_homepage_explains_shared_website_and_independent_local_packages(self):
         for language in ('zh', 'en'):
-            _, page, _ = Client(language).request('/')
+            page = View(language, 'test', None).examples()
             text = ' '.join(HtmlStructure(page).text)
             self.assertRegex(text, r'同一.*(?:网址|链接|服务)' if language == 'zh' else r'(?i)same shared website address')
             self.assertRegex(text, r'每台.*(?:独立|各自)|独立' if language == 'zh' else r'(?i)separate.*each computer')

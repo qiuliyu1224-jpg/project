@@ -18,14 +18,15 @@ class ThirdTrialTests(unittest.TestCase):
 
     def test_fresh_and_invalid_language_default_to_english(self):
         guest=Client()
-        for path in ('/','/login','/register','/reset'):
+        self.assertEqual(guest.request('/')[2]['Location'],'/login')
+        for path in ('/login','/register','/reset'):
             status,html,_=guest.request(path)
             self.assertEqual(status,200)
             self.assertIn('<html lang="en">',html)
         guest.cookies['lang']='invalid'
-        self.assertIn('<html lang="en">',guest.request('/')[1])
+        self.assertIn('<html lang="en">',guest.request('/login')[1])
         guest.cookies['lang']='zh'
-        self.assertIn('<html lang="zh-CN">',guest.request('/')[1])
+        self.assertIn('<html lang="zh-CN">',guest.request('/login')[1])
 
     def test_desktop_english_entry_overrides_old_preference_without_losing_session(self):
         self.owner.cookies['lang']='zh'
@@ -36,7 +37,7 @@ class ThirdTrialTests(unittest.TestCase):
         status,html,_=self.owner.request('/?lang=en')
         self.assertEqual(status,200)
         self.assertIn('<html lang="en">',html)
-        self.assertIn('0.4.8',html)
+        self.assertIn('0.4.10',html)
         self.assertEqual(self.owner.cookies['lang'],'en')
         self.assertEqual(self.owner.cookies['session'],session)
         self.assertIn('<html lang="en">',self.owner.request('/dashboard')[1])
@@ -52,9 +53,9 @@ class ThirdTrialTests(unittest.TestCase):
 
     def test_language_query_is_local_to_get_home_and_invalid_values_are_ignored(self):
         guest=Client('zh')
-        self.assertIn('<html lang="zh-CN">',guest.request('/?lang=invalid')[1])
+        self.assertIn('<html lang="zh-CN">',guest.request('/login')[1])
         self.assertIn('<html lang="zh-CN">',guest.request('/register?lang=en')[1])
-        self.assertIn('<html lang="zh-CN">',guest.request('/?lang=')[1])
+        self.assertIn('<html lang="zh-CN">',guest.request('/login')[1])
         self.assertEqual(guest.cookies['lang'],'zh')
 
     def test_auto_publication_and_three_charts_leave_ballots_unchanged(self):
