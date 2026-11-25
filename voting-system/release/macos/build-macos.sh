@@ -84,7 +84,7 @@ start_server() {
     VOTELAB_DATA_DIR="$work_dir/data" "$binary" --no-browser --port "$port" > "$log_path" 2>&1 &
     server_pid=$!
     for _ in {1..30}; do
-        if curl --fail --silent --max-time 2 "$base_url/" > "$work_dir/home.html" && \
+        if curl --fail --silent --max-time 2 "$base_url/login" > "$work_dir/home.html" && \
             grep -q 'VoteLab' "$work_dir/home.html"; then
             return 0
         fi
