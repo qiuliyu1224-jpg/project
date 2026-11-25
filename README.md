@@ -1,29 +1,156 @@
 # VoteLab
 
-Local Python + SQLite voting and entry-evaluation prototype.
+## Download and Run
 
-Current version: **0.4.10**.
+**Current release: 0.4.10.** Download the ZIP for your computer from the
+[release page](https://github.com/qiuliyu1224-jpg/project/releases/tag/votelab-v0.4.10-team-test).
 
-[Download Windows, Apple Silicon or Intel Mac](https://github.com/qiuliyu1224-jpg/project/releases/tag/votelab-v0.4.10-team-test).
-The release is published only after all three native builds and checks succeed.
-Safely quit the running older VoteLab before upgrading, and keep the data folder.
+| Your computer | Download |
+| --- | --- |
+| Windows, 64-bit | [VoteLab-0.4.10-Windows-x64.zip](https://github.com/qiuliyu1224-jpg/project/releases/download/votelab-v0.4.10-team-test/VoteLab-0.4.10-Windows-x64.zip) |
+| Mac with an Apple M-series chip | [VoteLab-0.4.10-macOS-Apple-Silicon.zip](https://github.com/qiuliyu1224-jpg/project/releases/download/votelab-v0.4.10-team-test/VoteLab-0.4.10-macOS-Apple-Silicon.zip) |
+| Mac with an Intel processor | [VoteLab-0.4.10-macOS-Intel.zip](https://github.com/qiuliyu1224-jpg/project/releases/download/votelab-v0.4.10-team-test/VoteLab-0.4.10-macOS-Intel.zip) |
 
-The home page has one complete interactive entry-evaluation demo and two display
-examples. The demo includes local images, optional ratings, review, editing,
-temporary submission/results and restart. The guide and empty list open the same
-demo. Demo actions never enter real events or ballot records.
+The ZIP packages include their runtime. You do not need to install Python, Node.js,
+Playwright or FFmpeg to use them.
 
-Login, language controls on auth and workspace pages, independent entry practice,
-real voting/review, backups, exports and stable list filters remain.
+### Windows
 
-For development, install voting-system/requirements.txt and run
-`python voting-system/run_votelab.py`. Native ZIP packages include their runtime.
+1. Download the Windows ZIP and extract **all files** to a new folder.
+2. Open the extracted folder and double-click **Start VoteLab.bat**. Windows may
+   display the name as **Start VoteLab** when file extensions are hidden.
+3. Wait for the browser to open. Keep the launcher running while using VoteLab.
 
-Checks: `npm ci`, `npm run browser:install`, `npm run tools:check`,
-`npm run test:ui`, `npm run test:onboarding`, `npm run test:demo`,
-`npm run test:filters`. These use disposable test data. Playwright/FFmpeg are
-development tools, not user requirements for the packaged application.
+Do not launch the application from inside the ZIP or move the startup file away
+from its `app` and `runtime` folders.
 
-See [0.4.10 changes and validation](voting-system/docs/VERSION_0410.md),
-[source notes](voting-system/README.md). This classroom prototype does not provide
-cloud sharing or real SMS identity verification.
+### Mac
+
+1. In **Apple menu > About This Mac**, check whether the computer has an Apple
+   M-series chip or an Intel processor. Download the matching ZIP.
+2. Extract the ZIP and open the extracted folder.
+3. Double-click **VoteLab.app** and wait for the browser to open.
+
+This classroom build is not notarised by Apple. If macOS blocks it, consult the
+included Mac first-run instructions and your device administrator where relevant.
+
+### If the browser does not open
+
+Use the local address shown by the launcher, normally
+`http://127.0.0.1:8765/`. VoteLab must be running for that address to work.
+The address refers to the application on your own computer, not a shared website.
+
+## First Use
+
+1. Select English or Chinese on the login or registration page.
+2. Create an account using a fictional phone number that matches the selected
+   country format and a password used only for this demonstration.
+3. Request the demonstration verification code. The code appears on the page;
+   no SMS is sent and phone ownership is not verified.
+4. Sign in. The application opens Explore. Language switching remains available
+   in the workspace, and your selected language is retained.
+5. Open **Quick guide** in the upper-right corner whenever you need help.
+
+The same account can create events, submit entries and vote. Separate accounts
+for these activities are not required.
+
+## Try the Example Before Creating an Event
+
+- **Entry evaluation** is an interactive demo. Open **Try the interactive demo**,
+  browse three illustrated entries, rate at least one, review your choices and
+  submit a demo ballot. You can return to edit, view demo results and try again.
+- **Proposal voting** and **Project showcase** are display examples. Their
+  buttons open explanations and optional creation guidance, not a live ballot.
+
+In the rating demo, zero is a valid score. Skipped entries are not counted as
+zero. Images can be enlarged. Demo results contain only your current demo ballot,
+with no preset votes. Demo activity never enters real events, ballot history,
+totals or exports. Refreshing, closing or restarting the demo clears its progress.
+
+The voter guide and the empty-event practice button open the same interactive
+demo. Entry-submission practice is a separate form exercise; it sends no real
+application for review. Guides can be read or finished without saving or submitting.
+
+## Use a Real Local Event
+
+| Goal | Basic steps |
+| --- | --- |
+| Create an event | Choose **Create event**, set the rules, add options or allow entry applications, then save and preview. Explicitly open applications or voting when ready. |
+| Submit an entry | Find an event accepting applications, check its deadline and access requirements, then submit an entry for review. Check **My entries** for the actual review status. |
+| Vote | Open an event with voting available, follow its selection, rating or ranking rules, review the ballot, then confirm submission. |
+| View results | Results depend on the event status, publication settings and access permissions. Available exports appear with the permitted results. |
+
+Events, accounts and ballots are stored locally. Each computer has its own data.
+An invitation code controls access to an event on that installation; it does not
+transfer or synchronise events between computers. There is no cloud sharing.
+
+## Update, Backup and Quit
+
+1. In the running older version, choose **Local data & upgrades > Quit VoteLab
+   safely** before starting a new version. Local management tools are available
+   to the browser opened by the launcher.
+2. Extract the new ZIP into a new folder. Keep the existing user data folder so
+   that accounts, activities and ballots remain available.
+3. Start the new version using its own startup file.
+
+Closing the browser alone does not stop the background application. Use the local
+management page for backup and upgrade tools. Do not delete the data folder or
+stop an unrelated process to resolve a startup conflict.
+
+## Source Code and Developer Setup
+
+[Open the VoteLab 0.4.10 source branch](https://github.com/qiuliyu1224-jpg/project/tree/codex/votelab-0410).
+The repository's default branch also contains earlier data-preprocessing coursework;
+use the linked VoteLab branch for this software project.
+
+The native packages are the simplest way to try the application. To run from source,
+use Python 3.13 and Git, then run these commands from a terminal:
+
+```text
+git clone --branch codex/votelab-0410 --single-branch https://github.com/qiuliyu1224-jpg/project.git votelab
+cd votelab
+python -m pip install -r voting-system/requirements.txt
+python voting-system/run_votelab.py
+```
+
+On a system where Python is named `python3`, use `python3` in place of `python`.
+Pillow is the application dependency. The web application uses Python and SQLite.
+
+## Checks and Validation
+
+Run the Python checks from the source repository:
+
+```text
+cd voting-system
+python -m unittest discover -v
+```
+
+For optional browser checks, return to the repository root, install Node.js with
+npm, then run:
+
+```text
+npm ci
+npm run browser:install
+npm run test:ui
+npm run test:onboarding
+npm run test:demo
+npm run test:filters
+```
+
+The local release checks passed 142 Python checks, 37 existing interface checks,
+51 onboarding checks, 36 demo checks and 24 filter checks. Native Windows, Apple
+Silicon Mac and Intel Mac builds passed their automated build and archive checks.
+These are developer-run checks, not a formal user study or a production security
+certification. Mac checks do not establish compatibility with every macOS version
+or replace a first-run trial on a teammate's computer.
+
+## Project Scope
+
+VoteLab is a Software Engineering course prototype for entry evaluation, proposal
+voting and project selection. It supports single/multiple choice, star ratings,
+majority runoff and ranked-choice voting, together with entry review, rounds,
+results and local data tools.
+
+Use fictional demonstration details. This project does not provide real SMS
+verification, verified school identity, cloud synchronisation or cryptographic
+ballot anonymity.
