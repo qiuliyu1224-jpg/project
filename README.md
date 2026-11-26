@@ -137,9 +137,10 @@ npm run test:demo
 npm run test:filters
 ```
 
-The local release checks passed 142 Python checks, 37 existing interface checks,
-51 onboarding checks, 36 demo checks and 24 filter checks. Native Windows, Apple
-Silicon Mac and Intel Mac builds passed their automated build and archive checks.
+Version 0.4.11 passed 144 Python checks, 37 existing interface checks,
+51 onboarding checks and 12 saved-account/rule-explanation browser checks.
+The existing demo and list-filter acceptance suites are also maintained.
+Native package build results are available in GitHub Actions.
 These are developer-run checks, not a formal user study or a production security
 certification. Mac checks do not establish compatibility with every macOS version
 or replace a first-run trial on a teammate's computer.
