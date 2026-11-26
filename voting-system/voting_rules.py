@@ -5,7 +5,7 @@ from app import Problem, scalar
 
 METHODS = {'SINGLE': ('单／多选', 'Single / multiple choice'),
            'SCORE': ('星级评分', 'Star rating'),
-           'MAJORITY': ('多数决选', 'Majority / runoff'),
+           'MAJORITY': ('多数决选（绝对多数）', 'Majority runoff (absolute majority)'),
            'RCV': ('排序投票 RCV', 'Ranked-choice voting')}
 
 

@@ -56,7 +56,7 @@ mkdir -p "$work_dir/spec"
     --add-data "$source_dir/schema.sql:." --add-data "$source_dir/static:static" \
     "$source_dir/run_votelab.py"
 
-package_name="VoteLab-0.4.10-macOS-$chip"
+package_name="VoteLab-0.4.11-macOS-$chip"
 package_dir="$work_dir/$package_name"
 archive="$work_dir/$package_name.zip"
 mkdir -p "$package_dir"

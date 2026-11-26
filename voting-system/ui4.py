@@ -11,6 +11,7 @@ class View(Base):
         body=body.replace('<div class="hero-symbol">✦</div>','<img class="hero-vote" src="/static/assets/hero-vote.webp" alt="" aria-hidden="true">')
         guide=f'<button type="button" class="guide-open" data-guide-open>{icon("book")}{self.t("操作指南","Quick guide")}</button>'
         if self.path=='/':
+            body+=f'<p class="local-scope helper">{self.t("当前为本地运行版本，活动与投票数据保存在本机，不会在不同设备间同步。","This version runs locally. Events and voting data are stored on this computer and are not synced across devices.")}</p>'
             body+=f'<div class="guide-entry">{icon("book")}<span>{self.t("第一次使用？","First time here?")}</span><button type="button" class="text-button" data-guide-open>{self.t("5步操作指南","5-step guide")} →</button></div>'
         page=super().page(title,body,section)
         if getattr(self,'local_operator',False):
@@ -27,8 +28,26 @@ class View(Base):
         page=page.replace('</head>','<link rel="stylesheet" href="/static/refined.css"></head>')
         return page.replace('<script defer src="/static/app.js"></script>','<script defer src="/static/app.js"></script><script defer src="/static/v4.js"></script><script defer src="/static/experience.js"></script><script defer src="/static/guide.js"></script><script defer src="/static/demo.js"></script>').replace('VoteLab<small>03</small>',f'VoteLab<small>{VERSION}</small>')
 
+    def rule_help(self,mode):
+        if mode not in ('MAJORITY','RCV'): return ''
+        text=self.t('获得本轮有效票超过50%才能胜出，否则进入决选。','A candidate must receive more than 50% of valid ballots in the current round to win; otherwise a runoff is needed.') if mode=='MAJORITY' else self.t('按偏好顺序排列候选项。若无人获得超过半数的有效票，则淘汰得票最少的候选项，并将其选票转移至下一位尚未被淘汰的候选项，重复计票直至产生结果。最低票并列或没有可转移的有效票时，计票暂停并提示处理。','Rank candidates in order of preference. If nobody receives more than half of active ballots, eliminate the lowest candidate and transfer those ballots to the next remaining preference. Repeat until a result is reached. Counting stops on a lowest-count tie or when no active ballots remain.')
+        label=self.t('多数决选：规则说明','Majority runoff: rule explanation') if mode=='MAJORITY' else self.t('排序投票：规则说明','Ranked choice: rule explanation')
+        return f'<details class="rule-help"><summary>{label}</summary><p>{text}</p></details>'
+
     def method(self,event):
-        return self.t(*METHODS[event['method']])
+        return self.t(*METHODS[event['method']])+self.rule_help(event['method'])
+
+    def accounts(self,saved):
+        t=self.t
+        rows=''
+        for row in saved:
+            active=bool(self.user and self.user['id']==row['id'])
+            action=f'<span>{t("正在使用","Current account")}</span>' if active else f'<form method="post" action="/accounts/select">{self.hidden()}<input type="hidden" name="user_id" value="{row["id"]}"><button class="btn">{t("切换到此账号","Switch to this account")}</button></form>'
+            rows+=f'<section class="account-row"><div data-no-translate><strong>{e(row["name"])}</strong><p>••••{e(row["phone"][-4:])}</p></div>{action}<form method="post" action="/accounts/remove">{self.hidden()}<input type="hidden" name="user_id" value="{row["id"]}"><button class="btn ghost">{t("从列表移除","Remove from list")}</button></form></section>'
+        if not rows: rows=f'<p class="notice">{t("尚未记住任何账号。登录时可勾选“在此设备上记住登录”。","No saved accounts yet. Select Remember sign-in on this device when logging in.")}</p>'
+        body=self.head(t('切换账号','Switch account'))+f'<section class="panel">{rows}<p class="helper">{t("仅显示当前浏览器记住的账号，30天后需重新登录。移除只取消快捷登录，不删除账号或作品。退出会取消当前账号在此浏览器的快捷登录。","Only accounts remembered in this browser appear, for up to 30 days. Removing one cancels quick sign-in without deleting the account or entries. Logging out also cancels quick sign-in for the current account.")}</p>'+self.button('/accounts/login',t('使用其他账号登录','Log in with another account'))+self.link('/',t('返回','Back'))+'</section>'
+        return self.page(t('切换账号','Switch account'),body)
+
 
     def event_form(self,event=None,candidates=None,template='custom'):
         body=super().event_form(event,candidates,template)
@@ -40,6 +59,7 @@ class View(Base):
         extra=f'''<label class="field" data-choice-limit {"hidden" if mode!='SINGLE' else ''}>{self.t('每人最多选几项（单／多选）','Maximum selections (single / multiple choice)')}<input type="number" name="max_choices" min="1" max="20" value="{limit}" {"required" if mode=='SINGLE' else 'disabled'}><small>{self.t('1为单选；3表示可选1～3个不同作品，每个作品加1票。','1 means single choice; 3 allows 1–3 different entries, one vote per entry.')}</small></label>
         <p class="helper" data-majority-note {"hidden" if mode!='MAJORITY' else ''}>{self.t('多数决选每人每轮选1个作品；第一轮无人过半时，前两名进入第二轮重新投票。','Majority runoff allows one entry per voter per round. If nobody has more than half in round one, voters choose again between the top two.')}</p>
         <label class="field">{self.t('活动邀请码（可选）','Event invitation code (optional)')}<input name="invite_code" minlength="4" maxlength="64" autocomplete="off"><small>{self.t('限制参与者时设置。编辑时留空保留原码；邀请码不等于学校身份验证。','Set a code to restrict access. Leave blank when editing to retain it. This does not verify school membership.')}</small></label>'''
+        extra='<div class="method-explanations">'+''.join(self.rule_help(key) for key in ('MAJORITY','RCV'))+'</div>'+extra
         if event: extra+=f'<label class="check-row"><input type="checkbox" name="remove_invite" value="1">{self.t("取消邀请码限制","Remove invitation-code restriction")}</label>'
         extra+=f'<label class="field">{self.t("活动标签（可选）","Event tags (optional)")}<input name="tags" maxlength="120" value="{e(event["tags"]) if event else ""}" placeholder="{self.t("例如：校园、摄影、创意","For example: campus, photography, creativity")}"></label>'
         body=body.replace('<label class="field">'+self.t('结果权限','Result visibility'),extra+'<label class="field">'+self.t('结果权限','Result visibility'))
@@ -71,8 +91,10 @@ class View(Base):
         fields+=f'<label class="password-visibility"><input type="checkbox" data-show-password> {t("显示密码（可选）","Show password (optional)")}</label>'
         if register or reset:
             fields+=f'<input type="hidden" name="purpose" value="{purpose}"><div class="field"><label for="account-code">{t("验证码","Verification code")}</label><div class="code-field"><input id="account-code" name="code" inputmode="numeric" pattern="[0-9]{{6}}" required maxlength="6" autocomplete="one-time-code"><button class="btn secondary" formaction="/auth/code" formnovalidate data-get-code>{t("获取验证码","Get code")}</button></div></div><div class="notice" data-code-status role="status" aria-live="polite" hidden></div>'
+        if not reset:
+            fields+=f'<label class="check-row"><input type="checkbox" name="remember" value="1">{t("在此设备上记住登录（30天，仅限私人设备）","Remember sign-in on this device (30 days; private devices only)")}</label>'
         form=f'<form method="post" action="/{flow}">{self.hidden()}{fields}<button class="btn full-width">{title}</button></form>'
-        links=self.link('/login',t('登录','Log in'))+self.link('/register',t('注册账号','Create account'))+self.link('/reset',t('忘记密码／旧账号设置密码','Forgot password / set a legacy account password'))
+        links=self.link('/accounts',t('已记住的账号','Saved accounts'))+self.link('/login',t('登录','Log in'))+self.link('/register',t('注册账号','Create account'))+self.link('/reset',t('忘记密码／旧账号设置密码','Forgot password / set a legacy account password'))
         story=f'<aside class="auth-intro"><p class="eyebrow">VOTELAB</p><h2>{t("每一次选择，都有依据。","Every choice deserves a reason.")}</h2><p>{t("创建活动、提交作品，也为你支持的想法投票。","Create events, submit work and vote for ideas you support.")}</p><img src="/static/assets/login-vote.webp" alt="" class="login-art" aria-hidden="true"></aside>'
         return self.page(title,f'<div class="auth-layout">{story}<section class="panel auth-panel">'+self.head(title)+f'{notice}{form}<div class="button-row">{links}</div><p class="helper">{t("课程演示，验证码显示在页面，不证明手机号归属。请勿使用真实银行或常用密码。","Class demo: codes appear on screen and do not verify phone ownership. Use a fictional password.")}</p></section></div>')
 

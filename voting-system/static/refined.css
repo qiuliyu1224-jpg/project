@@ -115,3 +115,5 @@ body[data-auth-page="1"] .guide-open{display:none}
 .practice-stars button[aria-pressed="true"]{background:#8f6a50;color:#fff;border-color:#8f6a50}
 .practice-summary{overflow-wrap:anywhere;background:#f2ede4;border-radius:7px;padding:18px}
 @media(max-width:620px){.guide-hint{top:85px;right:16px}.ux-practice{padding:20px}.ux-practice h2{font-size:23px}.ux-guide{right:15px;width:350px;bottom:12px}.ux-guide footer .btn{white-space:normal}.practice-cover{height:135px}}
+
+.rule-help{display:inline-block;vertical-align:middle;margin:.35rem .6rem;font-size:.85rem;font-weight:400;max-width:38rem}.rule-help summary{cursor:pointer;color:#76583f;text-decoration:underline;text-underline-offset:3px}.rule-help p{padding:12px;border:1px solid #d8cdbf;background:#faf7f1;line-height:1.7;border-radius:8px}.account-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:20px 0;border-bottom:1px solid #ded5ca}.account-row>div{flex:1;min-width:140px}

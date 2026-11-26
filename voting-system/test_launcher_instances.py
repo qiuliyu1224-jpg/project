@@ -225,7 +225,7 @@ class LauncherInstanceTests(unittest.TestCase):
             caught.exception.close()
         with LOCAL_HTTP.open(Request(endpoint, headers={'X-VoteLab-Instance': token}), timeout=3) as response:
             self.assertEqual(response.status, 200)
-            self.assertEqual(json.loads(response.read()), {'application': 'VoteLab', 'token': token, 'version': '0.4.10'})
+            self.assertEqual(json.loads(response.read()), {'application': 'VoteLab', 'token': token, 'version': '0.4.11'})
 
     def test_operator_safe_quit_releases_lock_and_allows_restart(self):
         from urllib.parse import urlencode

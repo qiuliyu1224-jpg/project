@@ -14,7 +14,7 @@ from urllib.parse import parse_qs
 from demo_server import create_server
 
 ROOT = Path(__file__).resolve().parent
-VERSION = '0.4.10'
+VERSION = '0.4.11'
 DB = Path(os.environ.get('VOTING_DB', str(ROOT / 'data' / 'voting.sqlite3')))
 CSRF_KEY = secrets.token_bytes(32)  # restarting invalidates open forms, not stored ballots
 
@@ -59,7 +59,10 @@ def init_db():
                 current={r['name'] for r in con.execute(f'PRAGMA table_info({table})')}
                 for column, definition in changes:
                     if column not in current: con.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
-            con.executescript('''CREATE TABLE IF NOT EXISTS preferences (
+            con.executescript('''CREATE TABLE IF NOT EXISTS remembered_accounts (
+                device_hash TEXT NOT NULL, user_id INTEGER NOT NULL REFERENCES users(id),
+                expires INTEGER NOT NULL, PRIMARY KEY(device_hash,user_id));
+                CREATE TABLE IF NOT EXISTS preferences (
                 ballot_id INTEGER NOT NULL REFERENCES ballots(id), candidate_id INTEGER NOT NULL REFERENCES candidates(id),
                 position INTEGER NOT NULL CHECK(position BETWEEN 1 AND 20),
                 PRIMARY KEY(ballot_id,candidate_id), UNIQUE(ballot_id,position));

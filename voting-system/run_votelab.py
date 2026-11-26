@@ -23,7 +23,7 @@ from urllib.request import build_opener, HTTPRedirectHandler, ProxyHandler, Requ
 
 STARTUP_LOG = logging.getLogger('votelab.launcher')
 INSTANCE_PATH = '/_votelab/instance'
-APP_VERSION = '0.4.10'
+APP_VERSION = '0.4.11'
 SHOW_STARTUP_DIALOG = False
 
 

@@ -37,7 +37,7 @@ class ThirdTrialTests(unittest.TestCase):
         status,html,_=self.owner.request('/?lang=en')
         self.assertEqual(status,200)
         self.assertIn('<html lang="en">',html)
-        self.assertIn('0.4.10',html)
+        self.assertIn('0.4.11',html)
         self.assertEqual(self.owner.cookies['lang'],'en')
         self.assertEqual(self.owner.cookies['session'],session)
         self.assertIn('<html lang="en">',self.owner.request('/dashboard')[1])
@@ -96,6 +96,8 @@ class ThirdTrialTests(unittest.TestCase):
             uid=con.execute('SELECT user_id FROM sessions WHERE token=?',(old,)).fetchone()[0]
             con.execute('INSERT INTO sessions VALUES(?,?,?)',('another-device-session',uid,int(time.time())+1000))
         status,_,headers=self.owner.post('/switch-account',{})
+        self.assertEqual((status,headers['Location']),(303,'/accounts'))
+        status,_,headers=self.owner.post('/accounts/login',{})
         self.assertEqual((status,headers['Location']),(303,'/login'))
         with app.connect() as con:
             self.assertIsNone(con.execute('SELECT 1 FROM sessions WHERE token=?',(old,)).fetchone())
@@ -127,7 +129,7 @@ class ThirdTrialTests(unittest.TestCase):
                 self.assertIn('Campus photography competition',body)
             self.assertEqual(request.call_count,1)
             self.assertEqual(self.other.post('/translate',{'token':token})[0],403)
-            self.owner.post('/switch-account',{})
+            self.owner.post('/accounts/login',{})
             self.assertEqual(self.owner.post('/translate',{'token':token})[0],403)
         with app.connect() as con:
             self.assertEqual(con.execute('SELECT title FROM elections WHERE id=?',(self.eid,)).fetchone()[0],'校园摄影作品评选')

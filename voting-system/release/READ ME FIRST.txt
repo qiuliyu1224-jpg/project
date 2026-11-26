@@ -1,4 +1,4 @@
-# VoteLab 0.4.10 — One complete interactive demo
+# VoteLab 0.4.11 — Clear voting rules and saved accounts
 
 - Entry evaluation is interactive. Proposal voting and project showcase remain
   clearly labeled display examples with explanation windows.
@@ -220,3 +220,5 @@ Chinese activity text is machine-translated online by MyMemory for English displ
 The anonymous provider allowance is 5000 characters per day. Successful translations are cached locally. Passwords, phone accounts, invitation codes and ballots are not sent. Do not enter sensitive information in activity descriptions.
 Provider documentation: https://mymemory.translated.net/doc/spec.php and https://mymemory.translated.net/doc/usagelimits.php
 
+
+0.4.11: Rule explanation buttons expand voting rules. Remember sign-in is optional, lasts up to 30 days in this browser, and should only be used on private devices. Switch account lists remembered accounts; removal and logout revoke quick access without deleting account data. Password reset revokes saved access. Local data does not sync across devices.

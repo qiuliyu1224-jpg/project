@@ -71,6 +71,8 @@ def restore_database(database, backup, prepare=None):
             validate(staged)
             with staged:
                 staged.execute('DELETE FROM sessions')
+                if staged.execute("SELECT 1 FROM sqlite_master WHERE name='remembered_accounts' AND type='table'").fetchone():
+                    staged.execute('DELETE FROM remembered_accounts')
                 if staged.execute("SELECT 1 FROM sqlite_master WHERE name='verification_codes' AND type='table'").fetchone():
                     staged.execute('DELETE FROM verification_codes')
         recovery = backup_database(database)

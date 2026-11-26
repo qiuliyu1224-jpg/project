@@ -29,7 +29,7 @@ let browser;
  const owner=await ownerContext.newPage(),p=await voterContext.newPage();
  for(const page of [owner,p]){page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());}
  await owner.goto(base+'/?lang=en&local='+state.token);await owner.waitForLoadState('networkidle');
- ok((await owner.locator('.brand').innerText()).includes('0.4.10'),'exact version visible');
+ ok((await owner.locator('.brand').innerText()).includes('0.4.11'),'exact version visible');
  ok((await owner.locator('.hero h2').innerText()).includes('See the entry'),'original main slogan retained');
  ok(await owner.locator('.example-card').count()===3,'three general-purpose activity examples');
  ok(await owner.locator('.example-card>img').evaluateAll(images=>images.every(img=>img.complete&&img.naturalWidth>0)),'local cover assets load');

@@ -1,5 +1,6 @@
 """Round-aware bilingual VoteLab routes."""
 import hmac
+import hashlib
 import json
 import re
 import secrets
@@ -34,6 +35,9 @@ def dispatch(env,start):
     token=cookies['session'].value if 'session' in cookies else ''
     browser=cookies['browser'].value if 'browser' in cookies else ''
     if not re.fullmatch('[a-f0-9]{48}',browser): browser=secrets.token_hex(24)
+    device=cookies['remember_device'].value if 'remember_device' in cookies else ''
+    if not re.fullmatch('[a-f0-9]{64}',device): device=''
+    device_hash=hashlib.sha256(device.encode()).hexdigest() if device else ''
     lang=cookies['lang'].value if 'lang' in cookies else 'en'
     if lang not in ('zh','en'): lang='en'
     # Explicit home links may select a language. Normal desktop launches and
@@ -135,6 +139,23 @@ def dispatch(env,start):
                 if 'application/json' in env.get('HTTP_ACCEPT',''):
                     return json_response({'code':code,'message':t('演示验证码（未发送短信），5分钟有效，仅当前浏览器可用。','Demo verification code (no SMS sent). Valid for 5 minutes in this browser.')})
                 return response(view.auth(purpose=='register',phone,scalar(form,'name'),code,reset=purpose=='reset'))
+            if path in ('/accounts/select','/accounts/remove'):
+                uid=scalar(form,'user_id')
+                remembered=con.execute('SELECT u.* FROM remembered_accounts r JOIN users u ON u.id=r.user_id WHERE r.device_hash=? AND r.user_id=? AND r.expires>?',(device_hash,uid,int(time.time()))).fetchone() if device else None
+                if not remembered: raise Problem('Saved sign-in expired; log in again / 保存的登录已过期，请重新登录。',401)
+                if path=='/accounts/remove':
+                    with con: con.execute('DELETE FROM remembered_accounts WHERE device_hash=? AND user_id=?',(device_hash,uid))
+                    return redirect('/accounts')
+                with con:
+                    con.execute('DELETE FROM sessions WHERE token=?',(token,))
+                    newtoken=secrets.token_hex(32)
+                    con.execute('INSERT INTO sessions VALUES(?,?,?)',(newtoken,remembered['id'],int(time.time())+7200))
+                headers.append(('Set-Cookie',f'session={newtoken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=7200'))
+                return redirect('/')
+            if path=='/accounts/login':
+                with con: con.execute('DELETE FROM sessions WHERE token=?',(token,))
+                headers.append(('Set-Cookie','session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'))
+                return redirect('/login')
             if path in ('/login','/register','/reset'):
                 phone=phone_number(); row=con.execute('SELECT * FROM users WHERE phone=?',(phone,)).fetchone()
                 if path=='/login': attempt('login:'+phone)
@@ -152,18 +173,27 @@ def dispatch(env,start):
                     if path=='/reset':
                         pw=password(); consume_code(con,phone,browser,'reset',scalar(form,'code'))
                         with con:
-                            salt=secrets.token_hex(16); con.execute('UPDATE users SET salt=?,password_hash=?,password_set=1 WHERE id=?',(salt,core.password_hash(pw,salt),uid)); con.execute('DELETE FROM sessions WHERE user_id=?',(uid,))
+                            salt=secrets.token_hex(16); con.execute('UPDATE users SET salt=?,password_hash=?,password_set=1 WHERE id=?',(salt,core.password_hash(pw,salt),uid)); con.execute('DELETE FROM sessions WHERE user_id=?',(uid,)); con.execute('DELETE FROM remembered_accounts WHERE user_id=?',(uid,))
                     elif not row['password_set']:
                         raise Problem('This legacy account needs a password; use Forgot password / 旧账号尚未设置密码，请点击忘记密码获取演示验证码后设置。',401)
                     elif not hmac.compare_digest(core.password_hash(scalar(form,'password'),row['salt']),row['password_hash']):
                         raise Problem('Incorrect phone number or password / 手机号或密码不正确。',401)
                     if path=='/login': attempt('login:'+phone,success=True)
                 with con:
-                    newtoken=secrets.token_hex(32); con.execute('INSERT INTO sessions VALUES(?,?,?)',(newtoken,uid,int(time.time())+7200))
+                    con.execute('DELETE FROM sessions WHERE token=?',(token,)); newtoken=secrets.token_hex(32); con.execute('INSERT INTO sessions VALUES(?,?,?)',(newtoken,uid,int(time.time())+7200))
+                if scalar(form,'remember')=='1':
+                    if not device:
+                        device=secrets.token_hex(32); device_hash=hashlib.sha256(device.encode()).hexdigest()
+                    with con:
+                        con.execute('DELETE FROM remembered_accounts WHERE expires<=?',(int(time.time()),))
+                        con.execute('INSERT OR REPLACE INTO remembered_accounts VALUES(?,?,?)',(device_hash,uid,int(time.time())+2592000))
+                    headers.append(('Set-Cookie',f'remember_device={device}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000'))
                 headers.append(('Set-Cookie',f'session={newtoken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=7200'))
                 headers.append(('Set-Cookie','guide_hint=1; HttpOnly; SameSite=Lax; Path=/; Max-Age=300')); return redirect('/')
             require()
-            if path in ('/logout','/switch-account'):
+            if path=='/switch-account': return redirect('/accounts')
+            if path=='/logout':
+                with con: con.execute('DELETE FROM remembered_accounts WHERE device_hash=? AND user_id=?',(device_hash,user['id']))
                 with con: con.execute('DELETE FROM sessions WHERE token=?',(token,))
                 headers.append(('Set-Cookie','session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0')); return redirect('/login')
             if path=='/create':
@@ -239,6 +269,9 @@ def dispatch(env,start):
             if action in ('pause','revision'): return redirect(f'/e/{eid}/revision' if action=='pause' else f'/e/{eid}/preview')
             return redirect(f'/e/{eid}/review' if action=='review' else f'/e/{eid}/preview' if action=='edit' else f'/e/{eid}')
         if env['REQUEST_METHOD']!='GET': raise Problem('Unsupported request / 不支持的请求。',400)
+        if path=='/accounts':
+            saved=con.execute('SELECT u.id,u.name,u.phone FROM remembered_accounts r JOIN users u ON u.id=r.user_id WHERE r.device_hash=? AND r.expires>? ORDER BY u.name,u.id',(device_hash,int(time.time()))).fetchall() if device else []
+            return response(view.accounts(saved))
         if path in ('/login','/register','/reset'): return response(view.auth(path=='/register',reset=path=='/reset'))
         if path=='/create':
             require(); return response(view.page(t('创建活动','Create event'),view.head(t('创建一场新活动','Create a new event'))+view.event_form(template=scalar(query,'template','custom')),'dashboard'))
